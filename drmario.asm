@@ -1,3 +1,11 @@
+
+    .data
+BOTTLE_TOP: .word 8            # Top boundary of the bottle (y-coordinate)
+BOTTLE_BOTTOM: .word 23        # Bottom boundary of the bottle (y-coordinate)
+BOTTLE_LEFT: .word 12          # Left boundary of the bottle (x-coordinate)
+BOTTLE_RIGHT: .word 20         # Right boundary of the bottle (x-coordinate)
+CAPSULE_WIDTH: .word 2         # Width of the pill in horizontal orientation
+CAPSULE_HEIGHT: .word 2        # Height of the pill in vertical orientation
 ################# CSC258 Assembly Final Project ###################
 # This file contains our implementation of Dr Mario.
 #
@@ -25,7 +33,7 @@ ADDR_DSPL: .word 0x10008000
 ADDR_KBRD: .word 0xffff0000
 
 # Game Config
-FRAME_RATE: .word 1000 # Frame rate in 1/(frame rate) where frame rate is fps 
+FRAME_RATE: .word 100 # Frame rate in 1/(frame rate) where frame rate is fps 
 
 # Game Colours
 BOTTLE_COLOUR: .word 0x808080
@@ -334,26 +342,81 @@ remove_pill:
         
 
 rotate:
-    lb $t4, pill_orient
-    xori $t4, $t4, 1
-    sb $t4, pill_orient
+    lb $t9, pill_orient         # Load pill orientation
+    lb $t5, pill_x          # Load current X position
+    addi $t6, $t5, 1            # Calculate next X position
+    addi $t6, $t6, 1            # If vertical, add width for right edge
+    lw $t7, BOTTLE_RIGHT        # Load right boundary
+    xori $t9, $t9, 1
+    sb $t9, pill_orient
+    bgt $t6, $t7, move_left # Check right boundary for vertical
     jr $ra
 
 move_down:
+
+    # Boundary check for moving down
+    lb $t9, pill_orient         # Load pill orientation
+    lb $t5, pill_y           # Load current Y position
+    addi $t6, $t5, 1            # Calculate next Y position
+    beq $t9, $zero, check_down_horizontal # If horizontal, check bottom edge
+    lb $t8, CAPSULE_HEIGHT+2      # Load capsule height for vertical
+    add $t6, $t6, $t8           # Calculate bottom edge for vertical orientation
+    lw $t7, BOTTLE_BOTTOM       # Load bottom boundary
+    bgt $t6, $t7, skip_movement # If next Y exceeds bottom boundary, skip movement
+    j move_down_continue
+
+check_down_horizontal:
+    lw $t7, BOTTLE_BOTTOM       # Load bottom boundary
+    bgt $t6, $t7, skip_movement # If next Y exceeds bottom boundary, skip movement
+
+move_down_continue:
     lb $t4, pill_y          # Load Y position
     addi $t4, $t4, 1           # Increase Y
     sb $t4, pill_y          # Store updated Y
     jr $ra
 
 move_left:
+
+    # Boundary check for moving left
+    lb $t9, pill_orient         # Load pill orientation
+    lb $t5, pill_x           # Load current X position
+    addi $t6, $t5, -1           # Calculate next X position
+    lw $t7, BOTTLE_LEFT         # Load left boundary
+    bge $t6, $t7, move_left_continue # If within left boundary, allow movement
+    j skip_movement             # Otherwise, skip movement
+
+move_left_continue:
     lb $t4, pill_x         # Load X position
     addi $t4, $t4, -1          # Decrease X
     sb $t4, pill_x          # Store updated X
     jr $ra
 
 move_right:
+
+    # Boundary check for moving right
+    lb $t9, pill_orient         # Load pill orientation
+    lb $t5, pill_x          # Load current X position
+    addi $t6, $t5, 1            # Calculate next X position
+    beq $t9, $zero, check_right_horizontal # If horizontal, check right edge
+    addi $t6, $t6, 1            # If vertical, add width for right edge
+    lw $t7, BOTTLE_RIGHT        # Load right boundary
+    bgt $t6, $t7, skip_movement # Check right boundary for vertical
+    j move_right_continue 
+
+check_right_horizontal:
+    lw $t8, CAPSULE_WIDTH       # Load capsule width
+    add $t6, $t6, $t8           # Add width to calculate right edge
+    lw $t7, BOTTLE_RIGHT        # Load right boundary
+    bgt $t6, $t7, skip_movement # If next X exceeds right boundary, skip movement
+
+move_right_continue:
     lb $t4, pill_x         # Load X position
     addi $t4, $t4, 1           # Increase X
     sb $t4, pill_x          # Store updated X
     jr $ra
-    
+
+
+skip_movement:
+    # If movement is invalid, skip updating the position
+    jr $ra
+
