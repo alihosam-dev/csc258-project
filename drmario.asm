@@ -2,7 +2,7 @@
 # This file contains our implementation of Dr Mario.
 #
 # Student 1: Chet Petro, 1010380320
-# Student 2: Name, Student Number (if applicable)
+# Student 2: Ali Elbadrawy, 1009795072 (if applicable)
 #
 # We assert that the code submitted here is entirely our own 
 # creation, and will indicate otherwise when it is not.
@@ -25,15 +25,16 @@ ADDR_DSPL: .word 0x10008000
 ADDR_KBRD: .word 0xffff0000
 
 # Game Config
-FRAME_RATE: .word 33 # Frame rate in 1/(frame rate) where frame rate is fps 
+FRAME_RATE: .word 1000 # Frame rate in 1/(frame rate) where frame rate is fps 
 
 # Game Colours
 BOTTLE_COLOUR: .word 0x808080
-
+BACKGROUND_COLOUR: .word 0x000000
 PILL_RED: .word 0xFF0000
 PILL_BLUE: .word 0x0000FF
 PILL_YELLOW: .word 0xFFFF00
-
+PREV_CAPSULE_X: .word 15     # Previous X position of capsule
+PREV_CAPSULE_Y: .word 5      # Previous Y position of capsule
 
 ##############################################################################
 # Mutable Data
@@ -109,6 +110,12 @@ main:
     addi $a2, $zero, 16
     lw $a3, BOTTLE_COLOUR
     jal draw_vert_line
+    
+    # Draw The Initial Capsule
+	lw $a0, PILL_RED
+	lw $a1, PILL_YELLOW
+	jal draw_pill
+    
 
 
 game_loop:
@@ -118,10 +125,54 @@ game_loop:
 	# 2b. Update locations (capsules)
 	# 3. Draw the screen
 	
+	# Check for keypress
+    lw $t0, ADDR_KBRD          # Load keyboard base address
+    lw $t1, 0($t0)             # Read keyboard state
+    beq $t1, $zero, game_loop  # If no key is pressed, continue loop
+
+    # Save the current position as the previous position
+    lw $t2, pill_x
+    sw $t2, PREV_CAPSULE_X
+    lb $t3, pill_y
+    sw $t3, PREV_CAPSULE_Y
+
+    # Get the key code
+    lw $t2, 4($t0)             # Load key code
+    
+    jal remove_pill
+    
+    # Check for 'w' (up)
+    li $t3, 0x77               # ASCII for 'w'
+    bne $t2, $t3, rotate_skip
+    jal rotate
+    rotate_skip:
+
+    # Check for 's' (down)
+    li $t3, 0x73               # ASCII for 's'
+    bne $t2, $t3, move_down_skip
+    jal move_down
+    move_down_skip:
+
+    # Check for 'a' (left)
+    li $t3, 0x61               # ASCII for 'a'
+    bne $t2, $t3, move_left_skip
+    jal move_left
+    move_left_skip:
+
+    # Check for 'd' (right)
+    li $t3, 0x64               # ASCII for 'd'
+    bne $t2, $t3, move_right_skip
+    jal move_right
+    move_right_skip:
+	
+	draw_capsule:
 	# Draw The Current Capsule
 	lw $a0, PILL_RED
 	lw $a1, PILL_YELLOW
+	
+	
 	jal draw_pill
+	
 	
 	# 4. Sleep
     
@@ -225,4 +276,31 @@ remove_pill:
     remove_pill_end:
         sw $zero, 0($t0) # remove sqare 2
         jr $ra # return
+        
 
+rotate:
+    lb $t4, pill_orient
+    xori $t4, $t4, 1
+    sb $t4, pill_orient
+    jr $ra
+
+move_down:
+    lb $t4, pill_y          # Load Y position
+    addi $t4, $t4, 1           # Increase Y
+    sb $t4, pill_y          # Store updated Y
+    jr $ra
+
+move_left:
+    lb $t4, pill_x         # Load X position
+    addi $t4, $t4, -1          # Decrease X
+    sb $t4, pill_x          # Store updated X
+    jr $ra
+
+move_right:
+    lb $t4, pill_x         # Load X position
+    addi $t4, $t4, 1           # Increase X
+    sb $t4, pill_x          # Store updated X
+    jr $ra
+    
+rotate_pill:
+    
