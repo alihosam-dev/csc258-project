@@ -26,7 +26,7 @@ ADDR_KBRD: .word 0xffff0000
 
 # Game Colours
 BOTTLE_COLOUR: .word 0x808080
-
+CAPSULE_COLOUR: .word 0xff0000
 ##############################################################################
 # Mutable Data
 ##############################################################################
@@ -95,6 +95,13 @@ main:
     addi $a2, $zero, 16
     lw $a3, BOTTLE_COLOUR
     jal draw_vert_line
+    
+    #draw a capsule
+    addi $a0, $zero, 15
+    addi $a1, $zero, 5
+    addi $a2, $zero, 2
+    lw $a3, CAPSULE_COLOUR
+    jal draw_hor_line
 
 game_loop:
     # 1a. Check if key has been pressed
@@ -153,4 +160,3 @@ draw_vert_line:
         j draw_vert_line_loop
     draw_vert_line_end:
     jr $ra # return
-    
