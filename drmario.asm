@@ -40,11 +40,13 @@ PREV_CAPSULE_Y: .word 5      # Previous Y position of capsule
 # Mutable Data
 ##############################################################################
 
+# Pill Data
 pill_x: .byte 15 # X coord of pill in pixels
 pill_y: .byte 8 # Y coord of pill in pixels
 pill_orient: .byte 0 # orientation of pill, 0 = horizontal, 1 = vertical
 
-
+# Virus Data
+intitial_virus_count: .byte 3
 
 ##############################################################################
 # Code
@@ -116,6 +118,9 @@ main:
 	lw $a1, PILL_YELLOW
 	jal draw_pill
     
+    # Draws $a0 amournt of the intitial viruses
+    lb $a3, intitial_virus_count
+    jal draw_random_virus
 
 
 game_loop:
@@ -228,7 +233,57 @@ draw_vert_line:
         addi $t0, $t0, 128                      # increment the offset of the pixel
         j draw_vert_line_loop
     draw_vert_line_end:
+        jr $ra # return
+        
+# draw_random_virus(virus_number)
+# draws a random coloured virus on the screen where there is not already a virus
+# a3 - number of viruses to draw
+draw_random_virus:
+    lw $t0, ADDR_DSPL   # current address to draw in $t0
+    # get random x offset in pixels (0-7), store in $a0
+    li $v0, 42
+    li $a0, 0
+    li $a1, 8
+    syscall
+    addi $t9, $a0, 12 # store x location in $t9
+    # get random y offset in pixels (0-7), store in $a0
+    li $v0, 42
+    li $a0, 0
+    li $a1, 8
+    syscall
+    addi $t8, $a0, 16   # store y location in $t8
+    sll $t9, $t9, 2     # initial x offset
+    sll $t8, $t8, 7     # inital y offset
+    add $t0, $t0, $t9   # add x offset
+    add $t0, $t0, $t8   # add y offset
+    # Get colour of current address
+    # check if that colour is not the background colour, if it is, jump back to draw_random_virus
+    # get random colour (0-2), store in $a0
+    li $v0, 42
+    li $a0, 0
+    li $a1, 3
+    syscall
+    
+    addi $t1, $zero, 1 # load 1 into $t1
 
+    bne $zero, $a0, draw_random_virus_not_red # if a0 == 0
+        lw $t3, PILL_RED # load red into $t3
+        sw $t3, 0($t0) # Draw virus
+        j draw_random_virus_end
+    draw_random_virus_not_red:
+    
+    bne $t1, $a0, draw_random_virus_not_blue # if a0 == 1
+        lw $t3, PILL_BLUE # load blue into $t3
+        sw $t3, 0($t0) # Draw virus
+        j draw_random_virus_end
+    draw_random_virus_not_blue:
+    
+    # Draw yellow virus (not blue or red)
+    lw $t3, PILL_YELLOW # load yellow into $t3
+    sw $t3, 0($t0) # Draw virus
+    draw_random_virus_end:
+        addi $a3, $a3, -1 # drawed a virus so reduce the amount to draw by 1
+        bne $a3, $zero, draw_random_virus
         jr $ra # return
     
 # draw_pill(colour1, colour2)
@@ -301,6 +356,4 @@ move_right:
     addi $t4, $t4, 1           # Increase X
     sb $t4, pill_x          # Store updated X
     jr $ra
-    
-rotate_pill:
     
