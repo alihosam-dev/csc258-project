@@ -29,6 +29,7 @@ FRAME_RATE: .word 33 # Frame rate in 1/(frame rate) where frame rate is fps
 
 # Game Colours
 BOTTLE_COLOUR: .word 0x808080
+
 PILL_RED: .word 0xFF0000
 PILL_BLUE: .word 0x0000FF
 PILL_YELLOW: .word 0xFFFF00
@@ -108,7 +109,7 @@ main:
     addi $a2, $zero, 16
     lw $a3, BOTTLE_COLOUR
     jal draw_vert_line
-    
+
 
 game_loop:
     # 1a. Check if key has been pressed
@@ -176,6 +177,7 @@ draw_vert_line:
         addi $t0, $t0, 128                      # increment the offset of the pixel
         j draw_vert_line_loop
     draw_vert_line_end:
+
         jr $ra # return
     
 # draw_pill(colour1, colour2)
@@ -223,4 +225,4 @@ remove_pill:
     remove_pill_end:
         sw $zero, 0($t0) # remove sqare 2
         jr $ra # return
-    
+
