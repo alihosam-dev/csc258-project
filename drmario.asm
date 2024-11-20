@@ -34,6 +34,7 @@ ADDR_KBRD: .word 0xffff0000
 
 # Game Config
 FRAME_RATE: .word 100 # Frame rate in 1/(frame rate) where frame rate is fps 
+GAME_BOARD: .space 4096 # Allocate 4096 bytes for the game board (32x32) x 4 (for each word)
 
 # Game Colours
 BOTTLE_COLOUR: .word 0x808080
@@ -49,11 +50,12 @@ PREV_CAPSULE_Y: .word 5      # Previous Y position of capsule
 ##############################################################################
 
 # Pill Data
-pill_colour_1: .word 0xFF0000 # colour of square 1 of pill
-pill_colour_2: .word 0xFF0000 # colour of square 2 of pill
+pill_colour_1: .byte 0 # colour of square 1 of pill (0-2)
+pill_colour_2: .byte 0 # colour of square 2 of pill (0-2) 
 pill_x: .byte 15 # X coord of pill in pixels
 pill_y: .byte 8 # Y coord of pill in pixels
 pill_orient: .byte 0 # orientation of pill, 0 = horizontal, 1 = vertical
+pill_single: .byte 1 # is the pill only a single square (0=no, 1=yes)
 
 # Virus Data
 intitial_virus_count: .byte 3
@@ -123,58 +125,37 @@ main:
     lw $a3, BOTTLE_COLOUR
     jal draw_vert_line
     
-    # Draw The Initial Capsule
-    # get random colour (0-2), store in $a0
-    li $v0, 42
-    li $a0, 0
-    li $a1, 3
-    syscall
-    addi $t1, $zero, 1 # load 1 into $t1
-    bne $zero, $a0, pill_1_not_red # if a0 == 0
-        lw $t3, PILL_RED # load red into $t3
-        sw $t3, pill_colour_1
-        j pill_1_end
-    pill_1_not_red:
+    # Draw the Initial viruses
     
-    bne $t1, $a0, pill_1_not_blue # if a0 == 1
-        lw $t3, PILL_BLUE # load blue into $t3
-        sw $t3, pill_colour_1
-        j pill_1_end
-    pill_1_not_blue:
-    
-    # Draw yellow virus (not blue or red)
-    lw $t3, PILL_YELLOW # load yellow into $t3
-    sw $t3, pill_colour_1
-    pill_1_end:
-    
-    # get random colour (0-2), store in $a0
-    li $v0, 42
-    li $a0, 0
-    li $a1, 3
-    syscall
-    addi $t1, $zero, 1 # load 1 into $t1
-    bne $zero, $a0, pill_2_not_red # if a0 == 0
-        lw $t3, PILL_RED # load red into $t3
-        sw $t3, pill_colour_2
-        j pill_1_end
-    pill_2_not_red:
-    
-    bne $t1, $a0, pill_2_not_blue # if a0 == 1
-        lw $t3, PILL_BLUE # load blue into $t3
-        sw $t3, pill_colour_2
-        j pill_2_end
-    pill_2_not_blue:
-    
-    # Draw yellow virus (not blue or red)
-    lw $t3, PILL_YELLOW # load yellow into $t3
-    sw $t3, pill_colour_2
-    pill_2_end:    
-	jal draw_pill
-    
-    # Draws $a0 amournt of the intitial viruses
-    lb $a3, intitial_virus_count
+    addi $a3, $zero, 3
     jal draw_random_virus
-
+    
+    # Draw The Initial Capsule
+    
+    # basic start data
+    addi $t0, $zero, 15
+    sb $t0, pill_x
+    addi $t0, $zero, 8
+    sb $t0, pill_y
+    sb $zero, pill_orient
+    sb $zero, pill_single
+    
+    # get random colour (0-2), store in $a0
+    li $v0, 42
+    li $a0, 0
+    li $a1, 3
+    syscall
+    sb $a0, pill_colour_1
+    
+    # get random colour (0-2), store in $a0
+    li $v0, 42
+    li $a0, 0
+    li $a1, 3
+    syscall
+    sb $a0, pill_colour_2
+    
+    jal draw_pill
+    
 
 game_loop:
     # 1a. Check if key has been pressed
@@ -189,7 +170,7 @@ game_loop:
     beq $t1, $zero, game_loop  # If no key is pressed, continue loop
 
     # Save the current position as the previous position
-    lw $t2, pill_x
+    lb $t2, pill_x
     sw $t2, PREV_CAPSULE_X
     lb $t3, pill_y
     sw $t3, PREV_CAPSULE_Y
@@ -224,11 +205,6 @@ game_loop:
     move_right_skip:
 	
 	draw_capsule:
-	# Draw The Current Capsule
-	lw $a0, PILL_RED
-	lw $a1, PILL_YELLOW
-	
-	
 	jal draw_pill
 	
 	
@@ -288,57 +264,54 @@ draw_vert_line:
     draw_vert_line_end:
         jr $ra # return
         
-# draw_random_virus(virus_number)
-# draws a random coloured virus on the screen where there is not already a virus
-# a3 - number of viruses to draw
+        
+        
+# draw_random_virus(number_of_viruses)
+# draws number_of_viruses viruses on the screen
+# $a3 - number_of_viruses
 draw_random_virus:
-    lw $t0, ADDR_DSPL   # current address to draw in $t0
+    beq $a3, $zero, draw_random_virus_end
+    
     # get random x offset in pixels (0-7), store in $a0
     li $v0, 42
     li $a0, 0
     li $a1, 8
     syscall
-    addi $t9, $a0, 12 # store x location in $t9
+    addi $t0, $a0, 12 # store x location in $t0
+    sb $t0, pill_x
+    
     # get random y offset in pixels (0-7), store in $a0
     li $v0, 42
     li $a0, 0
     li $a1, 8
     syscall
-    addi $t8, $a0, 16   # store y location in $t8
-    sll $t9, $t9, 2     # initial x offset
-    sll $t8, $t8, 7     # inital y offset
-    add $t0, $t0, $t9   # add x offset
-    add $t0, $t0, $t8   # add y offset
-    # Get colour of current address
-    # check if that colour is not the background colour, if it is, jump back to draw_random_virus (not implimented yet, might just not impliment it)
+    addi $t0, $a0, 16   # store y location in $t0
+    sb $t0, pill_y
+    
+    sb $zero, pill_orient # set standard orientation and single status for virus
+    addi $t0, $zero, 1
+    sb $t0, pill_single
+    
     # get random colour (0-2), store in $a0
     li $v0, 42
     li $a0, 0
     li $a1, 3
     syscall
+    sb $a0, pill_colour_1
     
-    addi $t1, $zero, 1 # load 1 into $t1
-
-    bne $zero, $a0, draw_random_virus_not_red # if a0 == 0
-        lw $t3, PILL_RED # load red into $t3
-        sw $t3, 0($t0) # Draw virus
-        j draw_random_virus_end
-    draw_random_virus_not_red:
+    addi $sp, $sp, -4           # Move stack pointer to empty location
+    sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
+    jal draw_pill
+    lw $ra, 0($sp)				# Pop $ra off the stack
+    addi $sp, $sp, 4			# Move stack pointer to top element on stack
     
-    bne $t1, $a0, draw_random_virus_not_blue # if a0 == 1
-        lw $t3, PILL_BLUE # load blue into $t3
-        sw $t3, 0($t0) # Draw virus
-        j draw_random_virus_end
-    draw_random_virus_not_blue:
+    addi $a3, $a3, -1
+    j draw_random_virus
     
-    # Draw yellow virus (not blue or red)
-    lw $t3, PILL_YELLOW # load yellow into $t3
-    sw $t3, 0($t0) # Draw virus
     draw_random_virus_end:
-        addi $a3, $a3, -1 # drawed a virus so reduce the amount to draw by 1
-        bne $a3, $zero, draw_random_virus
-        jr $ra # return
-    
+        jr $ra 
+        
+        
 # draw_pill()
 # draws a pill at at (pill_x, pill_y) in pixels with specified colours (pill_colour_1, pill_colour_2) with orientation specified by pill_orient
 draw_pill:
@@ -346,21 +319,35 @@ draw_pill:
     lb $t9, pill_x          # load current x pos
     lb $t8, pill_y          # load current y pos
     lb $t7, pill_orient     # load current orientation
+    lb $t3, pill_single     # load current single status
     sll $t9, $t9, 2         # x offset in $t9
     sll $t8, $t8, 7         # y offset in $t8
     add $t0, $t0, $t9       # add x offset
     add $t0, $t0, $t8       # add y offset
-    lw $t6, pill_colour_1   # load square 1 colour in $t6
-    lw $t5, pill_colour_2   # load square 2 colour in $t5
+    
+    lb $t6, pill_colour_1   # load square 1 colour in $t6 (0-2)
+    sll $t6, $t6, 2         # multiply colour offset by 4
+    la $t4, PILL_RED        # Load the address of PILL_RED in $t4
+    add $t6, $t6, $t4       # Sets $t6 to the right location in memory
+    lw $t6, 0($t6)          # Load the correct colour into $t6
+    
+    lb $t5, pill_colour_2   # load square 2 colour in $t5
+    sll $t5, $t5, 2         # multiply colour offset by 4
+    la $t4, PILL_RED        # Load the address of PILL_RED in $t4
+    add $t5, $t5, $t4       # Sets $t5 to the right location in memory
+    lw $t5, 0($t5)          # Load the correct colour into $t5
+    
     sw $t6, 0($t0)          # draw square 1
+    bne $t3, $zero, draw_pill_end       # Dont draw the second sqaure if we only have a single pixel
     beq $t7, $zero, draw_pill_is_hor    # if pill_orient is horizontal, jump to horizontal branch, else draw vertical
         addi $t0, $t0, -128                 # go to square above
+        sw $t5, 0($t0)                      # draw sqare 2
         j draw_pill_end                     # return
     draw_pill_is_hor:                   # else branch
         addi $t0, $t0, 4                    # go to sqare beside
+        sw $t5, 0($t0)                      # draw sqare 2
         j draw_pill_end                     # return
     draw_pill_end:
-        sw $t5, 0($t0) # draw sqare 2
         jr $ra # return
     
 # remove_pill()
@@ -388,16 +375,16 @@ remove_pill:
 
 rotate:
     lb $t9, pill_orient         # Load pill orientation
-    lb $t5, pill_x          # Load current X position
+    lb $t5, pill_x              # Load current X position
     addi $t6, $t5, 1            # Calculate next X position
     addi $t6, $t6, 1            # If vertical, add width for right edge
     lw $t7, BOTTLE_RIGHT        # Load right boundary
     xori $t9, $t9, 1
     bne $t9, $zero, rotate_colour_swap_skip # if we roate and our orientation goes back to zero, we know we have to swap the colours of the current pill, if not, we skip the swapping 
-        lw $t0, pill_colour_1   # Swap Colours
-        lw $t1, pill_colour_2   # |
-        sw $t0, pill_colour_2   # |
-        sw $t1, pill_colour_1   # |
+        lb $t0, pill_colour_1   # Swap Colours
+        lb $t1, pill_colour_2   # |
+        sb $t0, pill_colour_2   # |
+        sb $t1, pill_colour_1   # |
     rotate_colour_swap_skip:
     sb $t9, pill_orient
     bgt $t6, $t7, move_left # Check right boundary for vertical
@@ -470,4 +457,137 @@ move_right_continue:
 skip_movement:
     # If movement is invalid, skip updating the position
     jr $ra
+
+# save_to_game_board()
+# Saves the current pill information to the GAME_BOARD
+# pill information is stored in the gameboard as follows:
+# XXXXXXXX (xxxxxxxx) (yyyyyyyy) X(p)(s)(o)(22)(11)
+# xxxxxxxx - pill_x
+# yyyyyyyy - pill_y
+# p - signifies this is a valid pill and not and empty place in memory (ie, if there is a pill in this location, it will always be 1)
+# s - pill_single
+# o - pill_orient
+# 22 - pill_colour_2
+# 11 - pill_colour_1
+save_to_game_board:
+    lw $t0, GAME_BOARD  # Load the address of the game_board in $t0
+    addi $t1, $zero, 16777215  # Set $t1 to 128, this is the save data that we will be creating
+    
+    lb $t2, pill_x          # load pill_x into $t2
+    sll $t2, $t2, 16         # Shift left 16 so it matches to the correct position
+    andi $t1, $t2, 16777215      # Save pill_x into the data
+    
+    lb $t2, pill_y          # load pill_y into $t2
+    sll $t2, $t2, 8         # Shift left 8 so it matches to the correct position
+    andi $t1, $t2, 16777215      # Save pill_y into the data
+    
+    lb $t2, pill_single     # load pill_single into $t2
+    sll $t2, $t2, 5         # Shift left 5 so it matches to the correct position
+    andi $t1, $t2, 16777215      # Save pill_single into the data
+    
+    lb $t2, pill_orient     # load pill_orient into $t2
+    sll $t2, $t2, 4         # Shift left 4 so it matches to the correct position
+    andi $t1, $t2, 16777215      # Save pill_orient into the data
+    
+    lb $t2, pill_colour_2   # load pill_colour_2 into $t2
+    sll $t2, $t2, 2         # Shift left 2 so it matches to the correct position
+    andi $t1, $t2, 16777215      # Save pill_colour_2 into the data
+    
+    lb $t2, pill_colour_1   # load pill_colour_1 into $t2
+    andi $t1, $t2, 16777215      # Save pill_colour_2 into the data
+    
+    # Save the finished data into the gameboard based on pill_x and pill_y
+    lb $t9, pill_x          # load current x pos
+    lb $t8, pill_y          # load current y pos
+    sll $t9, $t9, 2         # x offset in $t9
+    sll $t8, $t8, 7         # y offset in $t8
+    add $t0, $t0, $t9       # add x offset
+    add $t0, $t0, $t8       # add y offset
+    sw $t1, 0($t0)          # Save the data into the GAME_BOARD Array
+    
+    lb $t2, pill_single     # load pill_single into $t2
+    bne $t2, $zero, save_to_game_board_end # if there is only one pill to save to the game board, end
+    lb $t2, pill_orient    # load pill_orient into $t2
+    beq $t2, $zero, save_to_game_board_pill_hor #if the pill is horizontal, save the right square with the same information
+        # pill is vertical
+        addi $t0, $t0, -128 
+        sw $t1, 0($t0)
+        j save_to_game_board_end
+    save_to_game_board_pill_hor:
+        addi $t0, $t0, 4
+        sw $t1, 0($t0)
+        j save_to_game_board_end
+    save_to_game_board_end:
+        jr $ra  #return
+        
+# remove_from_game_board()
+# renoves the current pill from the GAME_BOARD
+remove_from_game_board:
+    lw $t0, GAME_BOARD  # Load the address of the game_board in $t0
+    
+    # remove current pill on gameboard based on pill_x and pill_y
+    lb $t9, pill_x          # load current x pos
+    lb $t8, pill_y          # load current y pos
+    sll $t9, $t9, 2         # x offset in $t9
+    sll $t8, $t8, 7         # y offset in $t8
+    add $t0, $t0, $t9       # add x offset
+    add $t0, $t0, $t8       # add y offset
+    sw $zero, 0($t0)        # remove pill in the GAME_BOARD Array
+    
+    lb $t2, pill_single     # load pill_single into $t2
+    bne $t2, $zero, remove_from_game_board_end # if there is only one pill to save to the game board, end
+    lb $t2, pill_orient    # load pill_orient into $t2
+    beq $t2, $zero, remove_from_game_board_pill_hor #if the pill is horizontal, remove the right square 
+        # pill is vertical
+        addi $t0, $t0, -128 
+        sw $zero, 0($t0)
+        j save_to_game_board_end
+    remove_from_game_board_pill_hor:
+        addi $t0, $t0, 4
+        sw $zero, 0($t0)
+        j remove_from_game_board_end
+    remove_from_game_board_end:
+        jr $ra  #return
+    
+# get_from_game_board(x_cord, y_cord):
+# Gets the pixel at the (x_cord, y_cord) pixel location in the gameboard and updates all of the pill variables to match
+# $a0, x_cord (in pixels)
+# $a1, y_cord (in pixels)
+get_from_game_board:
+    lw $t0, GAME_BOARD  # Load the address of the game_board in $t0
+    sll $t9, $a0, 2         # x offset in $t9
+    sll $t8, $a1, 7         # y offset in $t8
+    add $t0, $t0, $t9       # add x offset
+    add $t0, $t0, $t8       # add y offset
+    
+    lw $t1, 0($t0)                          # Load the pill data into $t1 at the specific pixel coords
+    beq $t1, $zero, get_from_game_board_end # pill data cannot be all zeros because of the p signifier bit 
+    
+    andi $t2, $t1, 3        # Store pill_colour_1 data into $t2
+    sb $t2, pill_colour_1   # save data
+    
+    srl $t1, $t1, 2         # Shift data so pill_colour_2 is next
+    andi $t2, $t1, 3        # Store pill_colour_2 data into $t2
+    sb $t2, pill_colour_2   # save data
+    
+    srl $t1, $t1, 1         # Shift data so pill_orient is next
+    andi $t2, $t1, 1        # Store pill_orient data into $t2
+    sb $t2, pill_orient     # save data
+    
+    srl $t1, $t1, 1         # Shift data so pill_single is next
+    andi $t2, $t1, 1        # Store pill_orient data into $t2
+    sb $t2, pill_single     # save data
+    
+    srl $t1, $t1, 9         # Shift data so pill_y is next
+    andi $t2, $t1, 255      # Store pill_y data into $t2
+    sb $t2, pill_y          # save data
+    
+    srl $t1, $t1, 8         # Shift data so pill_x is next
+    andi $t2, $t1, 255      # Store pill_x data into $t2
+    sb $t2, pill_x          # save data
+    
+    get_from_game_board_end:
+        jr $ra  #return
+        
+
 
