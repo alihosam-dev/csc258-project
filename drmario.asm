@@ -49,6 +49,8 @@ PREV_CAPSULE_Y: .word 5      # Previous Y position of capsule
 ##############################################################################
 
 # Pill Data
+pill_colour_1: .word 0xFF0000 # colour of square 1 of pill
+pill_colour_2: .word 0xFF0000 # colour of square 2 of pill
 pill_x: .byte 15 # X coord of pill in pixels
 pill_y: .byte 8 # Y coord of pill in pixels
 pill_orient: .byte 0 # orientation of pill, 0 = horizontal, 1 = vertical
@@ -122,8 +124,51 @@ main:
     jal draw_vert_line
     
     # Draw The Initial Capsule
-	lw $a0, PILL_RED
-	lw $a1, PILL_YELLOW
+    # get random colour (0-2), store in $a0
+    li $v0, 42
+    li $a0, 0
+    li $a1, 3
+    syscall
+    addi $t1, $zero, 1 # load 1 into $t1
+    bne $zero, $a0, pill_1_not_red # if a0 == 0
+        lw $t3, PILL_RED # load red into $t3
+        sw $t3, pill_colour_1
+        j pill_1_end
+    pill_1_not_red:
+    
+    bne $t1, $a0, pill_1_not_blue # if a0 == 1
+        lw $t3, PILL_BLUE # load blue into $t3
+        sw $t3, pill_colour_1
+        j pill_1_end
+    pill_1_not_blue:
+    
+    # Draw yellow virus (not blue or red)
+    lw $t3, PILL_YELLOW # load yellow into $t3
+    sw $t3, pill_colour_1
+    pill_1_end:
+    
+    # get random colour (0-2), store in $a0
+    li $v0, 42
+    li $a0, 0
+    li $a1, 3
+    syscall
+    addi $t1, $zero, 1 # load 1 into $t1
+    bne $zero, $a0, pill_2_not_red # if a0 == 0
+        lw $t3, PILL_RED # load red into $t3
+        sw $t3, pill_colour_2
+        j pill_1_end
+    pill_2_not_red:
+    
+    bne $t1, $a0, pill_2_not_blue # if a0 == 1
+        lw $t3, PILL_BLUE # load blue into $t3
+        sw $t3, pill_colour_2
+        j pill_2_end
+    pill_2_not_blue:
+    
+    # Draw yellow virus (not blue or red)
+    lw $t3, PILL_YELLOW # load yellow into $t3
+    sw $t3, pill_colour_2
+    pill_2_end:    
 	jal draw_pill
     
     # Draws $a0 amournt of the intitial viruses
@@ -265,7 +310,7 @@ draw_random_virus:
     add $t0, $t0, $t9   # add x offset
     add $t0, $t0, $t8   # add y offset
     # Get colour of current address
-    # check if that colour is not the background colour, if it is, jump back to draw_random_virus
+    # check if that colour is not the background colour, if it is, jump back to draw_random_virus (not implimented yet, might just not impliment it)
     # get random colour (0-2), store in $a0
     li $v0, 42
     li $a0, 0
@@ -294,10 +339,8 @@ draw_random_virus:
         bne $a3, $zero, draw_random_virus
         jr $ra # return
     
-# draw_pill(colour1, colour2)
-# draws a pill at at (pill_x, pill_y) in pixels with specified colours with orientation specified by pill_orient
-# $a0 - colour of first square
-# $a1 - colour of second sqare
+# draw_pill()
+# draws a pill at at (pill_x, pill_y) in pixels with specified colours (pill_colour_1, pill_colour_2) with orientation specified by pill_orient
 draw_pill:
     lw $t0, ADDR_DSPL       # current address to draw in $t0
     lb $t9, pill_x          # load current x pos
@@ -307,7 +350,9 @@ draw_pill:
     sll $t8, $t8, 7         # y offset in $t8
     add $t0, $t0, $t9       # add x offset
     add $t0, $t0, $t8       # add y offset
-    sw $a0, 0($t0)          # draw square 1
+    lw $t6, pill_colour_1   # load square 1 colour in $t6
+    lw $t5, pill_colour_2   # load square 2 colour in $t5
+    sw $t6, 0($t0)          # draw square 1
     beq $t7, $zero, draw_pill_is_hor    # if pill_orient is horizontal, jump to horizontal branch, else draw vertical
         addi $t0, $t0, -128                 # go to square above
         j draw_pill_end                     # return
@@ -315,7 +360,7 @@ draw_pill:
         addi $t0, $t0, 4                    # go to sqare beside
         j draw_pill_end                     # return
     draw_pill_end:
-        sw $a1, 0($t0) # draw sqare 2
+        sw $t5, 0($t0) # draw sqare 2
         jr $ra # return
     
 # remove_pill()
@@ -348,6 +393,12 @@ rotate:
     addi $t6, $t6, 1            # If vertical, add width for right edge
     lw $t7, BOTTLE_RIGHT        # Load right boundary
     xori $t9, $t9, 1
+    bne $t9, $zero, rotate_colour_swap_skip # if we roate and our orientation goes back to zero, we know we have to swap the colours of the current pill, if not, we skip the swapping 
+        lw $t0, pill_colour_1   # Swap Colours
+        lw $t1, pill_colour_2   # |
+        sw $t0, pill_colour_2   # |
+        sw $t1, pill_colour_1   # |
+    rotate_colour_swap_skip:
     sb $t9, pill_orient
     bgt $t6, $t7, move_left # Check right boundary for vertical
     jr $ra
