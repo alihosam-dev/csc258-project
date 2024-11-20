@@ -374,89 +374,222 @@ remove_pill:
         
 
 rotate:
-    lb $t9, pill_orient         # Load pill orientation
-    lb $t5, pill_x              # Load current X position
-    addi $t6, $t5, 1            # Calculate next X position
-    addi $t6, $t6, 1            # If vertical, add width for right edge
-    lw $t7, BOTTLE_RIGHT        # Load right boundary
-    xori $t9, $t9, 1
-    bne $t9, $zero, rotate_colour_swap_skip # if we roate and our orientation goes back to zero, we know we have to swap the colours of the current pill, if not, we skip the swapping 
-        lb $t0, pill_colour_1   # Swap Colours
-        lb $t1, pill_colour_2   # |
-        sb $t0, pill_colour_2   # |
-        sb $t1, pill_colour_1   # |
-    rotate_colour_swap_skip:
-    sb $t9, pill_orient
-    bgt $t6, $t7, move_left # Check right boundary for vertical
-    jr $ra
+    lw $t0, ADDR_DSPL       # Load the base address of the display
+    lb $t9, pill_orient     # Load current pill orientation
+    lb $t5, pill_x          # Load current X position
+    lb $t6, pill_y          # Load current Y position
+    lb $t3, pill_single     # Load pill_single variable
+    sll $t5, $t5, 2         # Calculate X offset
+    sll $t6, $t6, 7         # Calculate Y offset
+
+    # If pill is single, rotation is always valid
+    bne $t3, $zero, rotate_continue
+
+    # Check collision for horizontal-to-vertical rotation
+    beq $t9, $zero, check_horizontal_to_vertical
+
+    # Check collision for vertical-to-horizontal rotation
+    j check_vertical_to_horizontal
+
+check_horizontal_to_vertical:
+    sub $t7, $t6, 128       # Offset for pixel above the left segment
+    add $t0, $t0, $t7       # Base + offset for above pixel
+    add $t0, $t0, $t5       # Add X offset
+    lw $t1, 0($t0)          # Load pixel color
+    lw $t2, BACKGROUND_COLOUR
+    bne $t1, $t2, skip_movement # If not background color, skip rotation
+    j rotate_continue
+
+check_vertical_to_horizontal:
+    add $t7, $t5, 4         # Offset for pixel to the right of the bottom segment
+    add $t0, $t0, $t7       # Base + offset for right pixel
+    add $t0, $t0, $t6       # Add Y offset
+    lw $t1, 0($t0)          # Load pixel color
+    lw $t2, BACKGROUND_COLOUR
+    bne $t1, $t2, skip_movement # If not background color, skip rotation
+    j rotate_continue
+
+rotate_continue:
+    # Perform rotation
+    lb $t9, pill_orient     # Load current pill orientation
+    xori $t9, $t9, 1        # Toggle orientation (0 <-> 1)
+    sb $t9, pill_orient     # Save new orientation
+
+    # Swap colors for proper orientation
+    lb $t0, pill_colour_1   # Load pill_colour_1
+    lb $t1, pill_colour_2   # Load pill_colour_2
+    sb $t0, pill_colour_2   # Store pill_colour_1 into pill_colour_2
+    sb $t1, pill_colour_1   # Store pill_colour_2 into pill_colour_1
+    jr $ra                  # Return
 
 move_down:
+    lw $t0, ADDR_DSPL       # Load the base address of the display
+    lb $t9, pill_orient     # Load pill orientation
+    lb $t5, pill_x          # Load current X position
+    lb $t6, pill_y          # Load current Y position
+    lb $t3, pill_single     # Load pill_single variable
+    sll $t5, $t5, 2         # Calculate X offset
+    sll $t6, $t6, 7         # Calculate Y offset
 
-    # Boundary check for moving down
-    lb $t9, pill_orient         # Load pill orientation
-    lb $t5, pill_y           # Load current Y position
-    addi $t6, $t5, 1            # Calculate next Y position
-    beq $t9, $zero, check_down_horizontal # If horizontal, check bottom edge
-    lb $t8, CAPSULE_HEIGHT+2      # Load capsule height for vertical
-    add $t6, $t6, $t8           # Calculate bottom edge for vertical orientation
-    lw $t7, BOTTLE_BOTTOM       # Load bottom boundary
-    bgt $t6, $t7, skip_movement # If next Y exceeds bottom boundary, skip movement
+    # Single pill
+    bne $t3, $zero, check_down_single
+    # Double pill (horizontal or vertical)
+    beq $t9, $zero, check_down_double_horizontal
+    j check_down_double_vertical
+
+check_down_single:
+    add $t7, $t6, 128       # Offset for pixel below
+    add $t0, $t0, $t7       # Base + offset for below pixel
+    add $t0, $t0, $t5       # Add X offset
+    lw $t1, 0($t0)          # Load pixel color
+    lw $t2, BACKGROUND_COLOUR
+    bne $t1, $t2, skip_movement # If not background color, skip movement
     j move_down_continue
 
-check_down_horizontal:
-    lw $t7, BOTTLE_BOTTOM       # Load bottom boundary
-    bgt $t6, $t7, skip_movement # If next Y exceeds bottom boundary, skip movement
+check_down_double_horizontal:
+    # Check the first (left) segment
+    add $t7, $t6, 128       # Offset for pixels below
+    add $t0, $t0, $t7       # Base + offset for below row
+    add $t0, $t0, $t5       # Add X offset for first pixel
+    lw $t1, 0($t0)          # Load color of first pixel
+    lw $t2, BACKGROUND_COLOUR
+    bne $t1, $t2, skip_movement # If first pixel is not background, skip
+
+    # Check the second (right) segment
+    add $t0, $t0, 4         # Offset for the right segment
+    lw $t1, 0($t0)          # Load color of second pixel
+    bne $t1, $t2, skip_movement # If second pixel is not background, skip
+    j move_down_continue
+
+check_down_double_vertical:
+    # Check the bottommost segment of the vertical pill
+    add $t7, $t6, 128       # Offset for bottommost pixel
+    add $t0, $t0, $t7       # Base + offset for below pixel
+    add $t0, $t0, $t5       # Add X offset
+    lw $t1, 0($t0)          # Load pixel color
+    lw $t2, BACKGROUND_COLOUR
+    bne $t1, $t2, skip_movement # If not background color, skip movement
+    j move_down_continue
 
 move_down_continue:
-    lb $t4, pill_y          # Load Y position
-    addi $t4, $t4, 1           # Increase Y
-    sb $t4, pill_y          # Store updated Y
-    jr $ra
+    lb $t4, pill_y          # Load current Y position
+    addi $t4, $t4, 1        # Increase Y position
+    sb $t4, pill_y          # Save updated Y position
+    jr $ra                  # Return
 
 move_left:
+    lw $t0, ADDR_DSPL       # Load the base address of the display
+    lb $t9, pill_orient     # Load pill orientation
+    lb $t5, pill_x          # Load current X position
+    lb $t6, pill_y          # Load current Y position
+    lb $t3, pill_single     # Load pill_single variable
+    sll $t5, $t5, 2         # Calculate X offset
+    sll $t6, $t6, 7         # Calculate Y offset
 
-    # Boundary check for moving left
-    lb $t9, pill_orient         # Load pill orientation
-    lb $t5, pill_x           # Load current X position
-    addi $t6, $t5, -1           # Calculate next X position
-    lw $t7, BOTTLE_LEFT         # Load left boundary
-    bge $t6, $t7, move_left_continue # If within left boundary, allow movement
-    j skip_movement             # Otherwise, skip movement
+    # Single pill
+    bne $t3, $zero, check_left_single
+    # Double pill (horizontal or vertical)
+    beq $t9, $zero, check_left_double_horizontal
+    j check_left_double_vertical
+
+check_left_single:
+    sub $t7, $t5, 4         # Offset for pixel to the left
+    add $t0, $t0, $t7       # Base + offset for left pixel
+    add $t0, $t0, $t6       # Add Y offset
+    lw $t1, 0($t0)          # Load pixel color
+    lw $t2, BACKGROUND_COLOUR
+    bne $t1, $t2, skip_movement # If not background color, skip movement
+    j move_left_continue
+
+check_left_double_horizontal:
+    sub $t7, $t5, 4         # Offset for leftmost pixel
+    add $t0, $t0, $t7       # Base + offset for first pixel
+    add $t0, $t0, $t6       # Add Y offset
+    lw $t1, 0($t0)          # Load color of first pixel
+    lw $t2, BACKGROUND_COLOUR
+    bne $t1, $t2, skip_movement # If first pixel is not background, skip
+
+    sub $t7, $t7, 128       # Offset for second pixel (above first pixel)
+    lw $t3, ADDR_DSPL
+    add $t0, $t3, $t7 # Reset base + offset for second pixel
+    lw $t1, 0($t0)          # Load color of second pixel
+    beq $t1, $t2, skip_movement # If second pixel is not background, skip
+    j move_left_continue
+
+check_left_double_vertical:
+    sub $t7, $t5, 4         # Offset for left pixel
+    add $t0, $t0, $t7       # Base + offset for first pixel
+    add $t0, $t0, $t6       # Add Y offset for first pixel
+    lw $t1, 0($t0)          # Load color of first pixel
+    lw $t2, BACKGROUND_COLOUR
+    bne $t1, $t2, skip_movement # If first pixel is not background, skip
+
+    sub $t0, $t0, 128       # Offset for second pixel (below first pixel)
+    lw $t1, 0($t0)          # Load color of second pixel
+    bne $t1, $t2, skip_movement # If second pixel is not background, skip
+    j move_left_continue
 
 move_left_continue:
-    lb $t4, pill_x         # Load X position
-    addi $t4, $t4, -1          # Decrease X
-    sb $t4, pill_x          # Store updated X
-    jr $ra
+    lb $t4, pill_x          # Load current X position
+    addi $t4, $t4, -1       # Decrease X position
+    sb $t4, pill_x          # Save updated X position
+    jr $ra                  # Return
 
 move_right:
-
-    # Boundary check for moving right
-    lb $t9, pill_orient         # Load pill orientation
+    lw $t0, ADDR_DSPL       # Load the base address of the display
+    lb $t9, pill_orient     # Load pill orientation
     lb $t5, pill_x          # Load current X position
-    addi $t6, $t5, 1            # Calculate next X position
-    beq $t9, $zero, check_right_horizontal # If horizontal, check right edge
-    addi $t6, $t6, 1            # If vertical, add width for right edge
-    lw $t7, BOTTLE_RIGHT        # Load right boundary
-    bgt $t6, $t7, skip_movement # Check right boundary for vertical
-    j move_right_continue 
+    lb $t6, pill_y          # Load current Y position
+    lb $t3, pill_single     # Load pill_single variable
+    sll $t5, $t5, 2         # Calculate X offset
+    sll $t6, $t6, 7         # Calculate Y offset
 
-check_right_horizontal:
-    lw $t8, CAPSULE_WIDTH       # Load capsule width
-    add $t6, $t6, $t8           # Add width to calculate right edge
-    lw $t7, BOTTLE_RIGHT        # Load right boundary
-    bgt $t6, $t7, skip_movement # If next X exceeds right boundary, skip movement
+    # Single pill
+    bne $t3, $zero, check_right_single
+    # Double pill (horizontal or vertical)
+    beq $t9, $zero, check_right_double_horizontal
+    j check_right_double_vertical
+
+check_right_single:
+    add $t7, $t5, 4         # Offset for pixel to the right
+    add $t0, $t0, $t7       # Base + offset for right pixel
+    add $t0, $t0, $t6       # Add Y offset
+    lw $t1, 0($t0)          # Load pixel color
+    lw $t2, BACKGROUND_COLOUR
+    bne $t1, $t2, skip_movement # If not background color, skip movement
+    j move_right_continue
+
+check_right_double_horizontal:
+    add $t7, $t5, 8         # Offset for rightmost pixel
+    add $t0, $t0, $t7       # Base + offset for first pixel
+    add $t0, $t0, $t6       # Add Y offset
+    lw $t1, 0($t0)          # Load color of first pixel
+    lw $t2, BACKGROUND_COLOUR
+    bne $t1, $t2, skip_movement # If first pixel is not background, skip
+
+    j move_right_continue
+
+check_right_double_vertical:
+    addi $t7, $t5, 4         # Offset for right pixel
+    add $t0, $t0, $t7       # Base + offset for first pixel
+    add $t0, $t0, $t6       # Add Y offset for first pixel
+    lw $t1, 0($t0)          # Load color of first pixel
+    lw $t2, BACKGROUND_COLOUR
+    bne $t1, $t2, skip_movement # If first pixel is not background, skip
+
+    addi $t0, $t0, -128       # Offset for second pixel (above first pixel)
+    lw $t1, 0($t0)          # Load color of second pixel
+    bne $t1, $t2, skip_movement # If second pixel is not background, skip
+    j move_right_continue
 
 move_right_continue:
-    lb $t4, pill_x         # Load X position
-    addi $t4, $t4, 1           # Increase X
-    sb $t4, pill_x          # Store updated X
-    jr $ra
-
+    lb $t4, pill_x          # Load current X position
+    addi $t4, $t4, 1        # Increase X position
+    sb $t4, pill_x          # Save updated X position
+    jr $ra                  # Return
 
 skip_movement:
-    # If movement is invalid, skip updating the position
-    jr $ra
+    jr $ra                  # Return without updating position
 
 # save_to_game_board()
 # Saves the current pill information to the GAME_BOARD
