@@ -56,6 +56,7 @@ pill_x: .byte 15 # X coord of pill in pixels
 pill_y: .byte 8 # Y coord of pill in pixels
 pill_orient: .byte 0 # orientation of pill, 0 = horizontal, 1 = vertical
 pill_single: .byte 1 # is the pill only a single square (0=no, 1=yes)
+pill_is_colliding: .byte 0 # 1 if the pill is colliding, 0 if not
 
 # Virus Data
 intitial_virus_count: .byte 3
@@ -588,6 +589,27 @@ get_from_game_board:
     
     get_from_game_board_end:
         jr $ra  #return
-        
 
+# detect_matches()
+# detects the 4+ vertical and horizontal matches
+# moves the pills to the correct location following the matches
+detect_matches:
+    lw $t0, GAME_BOARD  # Load the address of the game_board in $t0
+    addi $t0, $t0, 12       # add x offset top left
+    addi $t0, $t0, 8        # add y offset top left
+    
+    addi $t2, $zero, 0  # Set $t2 to the current x offset that we are checking
+    detect_matches_horizontal:
+        addi $t1, $zero, 0  # Set $t1 to the current length of a horizontal connection
+        addi $t9, $zero, 5  # Store 5 in $t9
+        bge $t2, $t9, detect_matches_next_row # If we are beginning our check at an offset greater than 5, there is no way that we could make a row of four so we go down to the next row
+        add $t3, $t0, $t2   # Set $t3 to the current location in memory that we are checking
+        lw $t4, 0($t3)      # Store the current colour we are checking in $t4
+        
+    
+    detect_matches_next_row:
+    
+    
+    
+    
 
