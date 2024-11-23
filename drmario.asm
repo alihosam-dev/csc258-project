@@ -14,7 +14,7 @@ CAPSULE_HEIGHT: .word 2        # Height of the pill in vertical orientation
 #
 # We assert that the code submitted here is entirely our own 
 # creation, and will indicate otherwise when it is not.
-#
+#2
 ######################## Bitmap Display Configuration ########################
 # - Unit width in pixels:       1
 # - Unit height in pixels:      1
@@ -34,7 +34,7 @@ ADDR_KBRD: .word 0xffff0000
 
 # Game Config
 FRAME_RATE: .word 100 # Frame rate in 1/(frame rate) where frame rate is fps 
-GAME_BOARD: .space 4096 # Allocate 4096 bytes for the game board (32x32) x 4 (for each word)
+GAME_BOARD: .space 4096 # Allocate 4096 bytes for the game board (32x32) x 4 (for each word)              
 
 # Game Colours
 BOTTLE_COLOUR: .word 0x808080
@@ -374,7 +374,7 @@ remove_pill:
         
 
 rotate:
-    lw $t0, ADDR_DSPL       # Load the base address of the display
+    lw $t0, GAME_BOARD       # Load the base address of the display
     lb $t9, pill_orient     # Load current pill orientation
     lb $t5, pill_x          # Load current X position
     lb $t6, pill_y          # Load current Y position
@@ -423,7 +423,7 @@ rotate_continue:
     jr $ra                  # Return
 
 move_down:
-    lw $t0, ADDR_DSPL       # Load the base address of the display
+    lw $t0, GAME_BOARD       # Load the base address of the display
     lb $t9, pill_orient     # Load pill orientation
     lb $t5, pill_x          # Load current X position
     lb $t6, pill_y          # Load current Y position
@@ -722,5 +722,63 @@ get_from_game_board:
     get_from_game_board_end:
         jr $ra  #return
         
+    
+# draw_from_game_board()
+# Iterates through the GAME_BOARD grid defined by bottle boundaries and draws pills or background.
+draw_from_game_board:
+    # Load bottle boundaries
+    lw $t0, BOTTLE_TOP         # Load top boundary (y start)
+    lw $t1, BOTTLE_BOTTOM      # Load bottom boundary (y end)
+    lw $t2, BOTTLE_LEFT        # Load left boundary (x start)
+    lw $t3, BOTTLE_RIGHT       # Load right boundary (x end)
+    lw $t4, BACKGROUND_COLOUR  # Load background colour (black)
+
+    # Outer loop: Iterate through rows (y-coordinates)
+    move $t5, $t0              # Initialize row counter (current_y = top)
+draw_from_game_board_row_loop:
+    beq $t5, $t1, draw_from_game_board_end # Stop when we reach bottom boundary
+
+    # Inner loop: Iterate through columns (x-coordinates)
+    move $t6, $t2              # Initialize column counter (current_x = left)
+draw_from_game_board_col_loop:
+    beq $t6, $t3, draw_from_game_board_next_row # Move to the next row when at the right boundary
+
+    # Retrieve game board data for (current_x, current_y)
+    addi $a0, $t6, 0           # $a0 = current_x
+    addi $a1, $t5, 0           # $a1 = current_y
+    jal get_from_game_board    # Load pill data into pill_* variables
+
+    # Check if there's a pill at this location
+    lb $t7, pill_single        # Load pill_single (non-zero if there's a pill)
+    beq $t7, $zero, draw_background # If no pill, draw background
+
+    # Set pill_x and pill_y to the current position
+    sb $t6, pill_x             # pill_x = current_x
+    sb $t5, pill_y             # pill_y = current_y
+
+    # Draw the pill
+    jal draw_pill
+    j draw_from_game_board_next_col # Move to the next column
+
+draw_background:
+    # Draw a black square at (current_x, current_y)
+    lw $t8, GAME_BOARD          # Load game board
+    sll $t9, $t6, 2            # Calculate x offset
+    sll $t2, $t5, 7           # Calculate y offset
+    add $t8, $t8, $t9          # Add x offset
+    add $t8, $t8, $t2         # Add y offset
+    sw $t4, 0($t8)             # Write black (BACKGROUND_COLOUR) to the screen
+
+draw_from_game_board_next_col:
+    addi $t6, $t6, 1           # Increment column counter
+    j draw_from_game_board_col_loop # Repeat inner loop
+
+draw_from_game_board_next_row:
+    addi $t5, $t5, 1           # Increment row counter
+    j draw_from_game_board_row_loop # Repeat outer loop
+
+draw_from_game_board_end:
+    jr $ra                     # Return
 
 
+    
