@@ -72,54 +72,129 @@ main:
     # Initialize the game
     
     # Draw the bottle
+    lw $t0, ADDR_DSPL
     addi $a0, $zero, 11
     addi $a1, $zero, 7
     addi $a2, $zero, 4
     lw $a3, BOTTLE_COLOUR
     jal draw_hor_line
     
+    lw $t0, ADDR_DSPL
     addi $a0, $zero, 17
     addi $a1, $zero, 7
     addi $a2, $zero, 4
     lw $a3, BOTTLE_COLOUR
     jal draw_hor_line
     
+    lw $t0, ADDR_DSPL
     addi $a0, $zero, 11
     addi $a1, $zero, 24
     addi $a2, $zero, 10
     lw $a3, BOTTLE_COLOUR
     jal draw_hor_line
     
+    lw $t0, ADDR_DSPL
     addi $a0, $zero, 13
     addi $a1, $zero, 4
     addi $a2, $zero, 2
     lw $a3, BOTTLE_COLOUR
     jal draw_vert_line
     
+    lw $t0, ADDR_DSPL
     addi $a0, $zero, 18
     addi $a1, $zero, 4
     addi $a2, $zero, 2
     lw $a3, BOTTLE_COLOUR
     jal draw_vert_line
     
+    lw $t0, ADDR_DSPL
     addi $a0, $zero, 14
     addi $a1, $zero, 5
     addi $a2, $zero, 2
     lw $a3, BOTTLE_COLOUR
     jal draw_vert_line
     
+    lw $t0, ADDR_DSPL
     addi $a0, $zero, 17
     addi $a1, $zero, 5
     addi $a2, $zero, 2
     lw $a3, BOTTLE_COLOUR
     jal draw_vert_line
     
+    lw $t0, ADDR_DSPL
     addi $a0, $zero, 11
     addi $a1, $zero, 8
     addi $a2, $zero, 16
     lw $a3, BOTTLE_COLOUR
     jal draw_vert_line
     
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 20
+    addi $a1, $zero, 8
+    addi $a2, $zero, 16
+    lw $a3, BOTTLE_COLOUR
+    jal draw_vert_line
+    
+    
+    # Adding the bottle bounds to the game board
+    # Draw the bottle
+    la $t0, GAME_BOARD
+    addi $a0, $zero, 11
+    addi $a1, $zero, 7
+    addi $a2, $zero, 4
+    lw $a3, BOTTLE_COLOUR
+    jal draw_hor_line
+    
+    la $t0, GAME_BOARD
+    addi $a0, $zero, 17
+    addi $a1, $zero, 7
+    addi $a2, $zero, 4
+    lw $a3, BOTTLE_COLOUR
+    jal draw_hor_line
+    
+    la $t0, GAME_BOARD
+    addi $a0, $zero, 11
+    addi $a1, $zero, 24
+    addi $a2, $zero, 10
+    lw $a3, BOTTLE_COLOUR
+    jal draw_hor_line
+    
+    la $t0, GAME_BOARD
+    addi $a0, $zero, 13
+    addi $a1, $zero, 4
+    addi $a2, $zero, 2
+    lw $a3, BOTTLE_COLOUR
+    jal draw_vert_line
+    
+    la $t0, GAME_BOARD
+    addi $a0, $zero, 18
+    addi $a1, $zero, 4
+    addi $a2, $zero, 2
+    lw $a3, BOTTLE_COLOUR
+    jal draw_vert_line
+    
+    la $t0, GAME_BOARD
+    addi $a0, $zero, 14
+    addi $a1, $zero, 5
+    addi $a2, $zero, 2
+    lw $a3, BOTTLE_COLOUR
+    jal draw_vert_line
+    
+    la $t0, GAME_BOARD
+    addi $a0, $zero, 17
+    addi $a1, $zero, 5
+    addi $a2, $zero, 2
+    lw $a3, BOTTLE_COLOUR
+    jal draw_vert_line
+    
+    la $t0, GAME_BOARD
+    addi $a0, $zero, 11
+    addi $a1, $zero, 8
+    addi $a2, $zero, 16
+    lw $a3, BOTTLE_COLOUR
+    jal draw_vert_line
+    
+    la $t0, GAME_BOARD
     addi $a0, $zero, 20
     addi $a1, $zero, 8
     addi $a2, $zero, 16
@@ -154,6 +229,8 @@ main:
     li $a1, 3
     syscall
     sb $a0, pill_colour_2
+    
+    
     
     jal draw_pill
     
@@ -207,6 +284,7 @@ game_loop:
 	
 	draw_capsule:
 	jal draw_pill
+
 	
 	
 	# 4. Sleep
@@ -227,8 +305,8 @@ game_loop:
 # $a1 - line start y pos (in pixels)
 # $a2 - length to draw (in pixels)
 # #a3 - colour to draw the line (in hex)
+# t0 is the address of where we're writing to (gameboard or display)
 draw_hor_line:
-    lw $t0, ADDR_DSPL               # current address to draw in $t0
     sll $t9, $a0, 2                 # initial x offset
     sll $t8, $a1, 7                 # inital y offset
     add $t0, $t0, $t9               # add x offset
@@ -249,8 +327,8 @@ draw_hor_line:
 # $a1 - line start y pos (in pixels)
 # $a2 - length to draw (in pixels)
 # #a3 - colour to draw the line (in hex)
+# t0 is the address of where we're writing to (gameboard or display)
 draw_vert_line:
-    lw $t0, ADDR_DSPL                       # current address to draw in $t0
     sll $t9, $a0, 2                         # initial x offset
     sll $t8, $a1, 7                         # inital y offset
     add $t0, $t0, $t9                       # add x offset
@@ -375,7 +453,7 @@ remove_pill:
         
 
 rotate:
-    lw $t0, ADDR_DSPL       # Load the base address of the display
+    la $t0, GAME_BOARD      # Load the base address of the display
     lb $t9, pill_orient     # Load current pill orientation
     lb $t5, pill_x          # Load current X position
     lb $t6, pill_y          # Load current Y position
@@ -424,7 +502,7 @@ rotate_continue:
     jr $ra                  # Return
 
 move_down:
-    lw $t0, ADDR_DSPL       # Load the base address of the display
+    la $t0, GAME_BOARD       # Load the base address of the display
     lb $t9, pill_orient     # Load pill orientation
     lb $t5, pill_x          # Load current X position
     lb $t6, pill_y          # Load current Y position
@@ -444,9 +522,9 @@ check_down_single:
     add $t0, $t0, $t5       # Add X offset
     lw $t1, 0($t0)          # Load pixel color
     lw $t2, BACKGROUND_COLOUR
-    bne $t1, $t2, skip_movement # If not background color, skip movement
+    bne $t1, $t2, change_pill_collision # If not background color, skip movement
     j move_down_continue
-
+    
 check_down_double_horizontal:
     # Check the first (left) segment
     add $t7, $t6, 128       # Offset for pixels below
@@ -454,12 +532,12 @@ check_down_double_horizontal:
     add $t0, $t0, $t5       # Add X offset for first pixel
     lw $t1, 0($t0)          # Load color of first pixel
     lw $t2, BACKGROUND_COLOUR
-    bne $t1, $t2, skip_movement # If first pixel is not background, skip
+    bne $t1, $t2, change_pill_collision # If first pixel is not background, skip
 
     # Check the second (right) segment
     add $t0, $t0, 4         # Offset for the right segment
     lw $t1, 0($t0)          # Load color of second pixel
-    bne $t1, $t2, skip_movement # If second pixel is not background, skip
+    bne $t1, $t2, change_pill_collision # If second pixel is not background, skip
     j move_down_continue
 
 check_down_double_vertical:
@@ -469,8 +547,14 @@ check_down_double_vertical:
     add $t0, $t0, $t5       # Add X offset
     lw $t1, 0($t0)          # Load pixel color
     lw $t2, BACKGROUND_COLOUR
-    bne $t1, $t2, skip_movement # If not background color, skip movement
+    bne $t1, $t2, change_pill_collision # If not background color, skip movement
     j move_down_continue
+
+
+change_pill_collision:
+    li $t3, 1
+    sb $t3, pill_is_colliding
+    j skip_movement
 
 move_down_continue:
     lb $t4, pill_y          # Load current Y position
@@ -479,7 +563,7 @@ move_down_continue:
     jr $ra                  # Return
 
 move_left:
-    lw $t0, ADDR_DSPL       # Load the base address of the display
+    la $t0, GAME_BOARD     # Load the base address of the display
     lb $t9, pill_orient     # Load pill orientation
     lb $t5, pill_x          # Load current X position
     lb $t6, pill_y          # Load current Y position
@@ -511,7 +595,7 @@ check_left_double_horizontal:
     bne $t1, $t2, skip_movement # If first pixel is not background, skip
 
     sub $t7, $t7, 128       # Offset for second pixel (above first pixel)
-    lw $t3, ADDR_DSPL
+    la $t3, GAME_BOARD
     add $t0, $t3, $t7 # Reset base + offset for second pixel
     lw $t1, 0($t0)          # Load color of second pixel
     beq $t1, $t2, skip_movement # If second pixel is not background, skip
@@ -537,7 +621,7 @@ move_left_continue:
     jr $ra                  # Return
 
 move_right:
-    lw $t0, ADDR_DSPL       # Load the base address of the display
+    la $t0, GAME_BOARD       # Load the base address of the display
     lb $t9, pill_orient     # Load pill orientation
     lb $t5, pill_x          # Load current X position
     lb $t6, pill_y          # Load current Y position
@@ -738,6 +822,64 @@ get_from_game_board:
     
     get_from_game_board_end:
         jr $ra  #return
+
+# draw_from_game_board()
+# Iterates through the GAME_BOARD grid defined by bottle boundaries and draws pills or background.
+draw_from_game_board:
+    # Load bottle boundaries
+    lw $t0, BOTTLE_TOP         # Load top boundary (y start)
+    lw $t1, BOTTLE_BOTTOM      # Load bottom boundary (y end)
+    lw $t2, BOTTLE_LEFT        # Load left boundary (x start)
+    lw $t3, BOTTLE_RIGHT       # Load right boundary (x end)
+    lw $t4, BACKGROUND_COLOUR  # Load background colour (black)
+
+    # Outer loop: Iterate through rows (y-coordinates)
+    move $t5, $t0              # Initialize row counter (current_y = top)
+draw_from_game_board_row_loop:
+    beq $t5, $t1, draw_from_game_board_end # Stop when we reach bottom boundary
+
+    # Inner loop: Iterate through columns (x-coordinates)
+    move $t6, $t2              # Initialize column counter (current_x = left)
+draw_from_game_board_col_loop:
+    beq $t6, $t3, draw_from_game_board_next_row # Move to the next row when at the right boundary
+
+    # Retrieve game board data for (current_x, current_y)
+    addi $a0, $t6, 0           # $a0 = current_x
+    addi $a1, $t5, 0           # $a1 = current_y
+    jal get_from_game_board    # Load pill data into pill_* variables
+
+    # Check if there's a pill at this location
+    lb $t7, pill_single        # Load pill_single (non-zero if there's a pill)
+    beq $t7, $zero, draw_background # If no pill, draw background
+
+    # Set pill_x and pill_y to the current position
+    sb $t6, pill_x             # pill_x = current_x
+    sb $t5, pill_y             # pill_y = current_y
+
+    # Draw the pill
+    jal draw_pill
+    j draw_from_game_board_next_col # Move to the next column
+
+draw_background:
+    # Draw a black square at (current_x, current_y)
+    lw $t8, GAME_BOARD          # Load game board
+    sll $t9, $t6, 2            # Calculate x offset
+    sll $t2, $t5, 7           # Calculate y offset
+    add $t8, $t8, $t9          # Add x offset
+    add $t8, $t8, $t2         # Add y offset
+    sw $t4, 0($t8)             # Write black (BACKGROUND_COLOUR) to the screen
+
+draw_from_game_board_next_col:
+    addi $t6, $t6, 1           # Increment column counter
+    j draw_from_game_board_col_loop # Repeat inner loop
+
+draw_from_game_board_next_row:
+    addi $t5, $t5, 1           # Increment row counter
+    j draw_from_game_board_row_loop # Repeat outer loop
+
+draw_from_game_board_end:
+    jr $ra                     # Return
+
 
 # detect_matches()
 # detects the 4+ vertical and horizontal matches
