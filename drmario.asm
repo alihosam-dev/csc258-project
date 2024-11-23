@@ -1,7 +1,7 @@
 
     .data
 BOTTLE_TOP: .word 8            # Top boundary of the bottle (y-coordinate)
-BOTTLE_BOTTOM: .word 23        # Bottom boundary of the bottle (y-coordinate)
+BOTTLE_BOTTOM: .word 24        # Bottom boundary of the bottle (y-coordinate)
 BOTTLE_LEFT: .word 12          # Left boundary of the bottle (x-coordinate)
 BOTTLE_RIGHT: .word 20         # Right boundary of the bottle (x-coordinate)
 CAPSULE_WIDTH: .word 2         # Width of the pill in horizontal orientation
@@ -33,7 +33,7 @@ ADDR_DSPL: .word 0x10008000
 ADDR_KBRD: .word 0xffff0000
 
 # Game Config
-FRAME_RATE: .word 100 # Frame rate in 1/(frame rate) where frame rate is fps 
+FRAME_RATE: .word 100 # Frame rate in 1/(frame rate) x 100 where frame rate is fps 
 GAME_BOARD: .space 4096 # Allocate 4096 bytes for the game board (32x32) x 4 (for each word)
 
 # Game Colours
@@ -58,8 +58,13 @@ pill_orient: .byte 0 # orientation of pill, 0 = horizontal, 1 = vertical
 pill_single: .byte 1 # is the pill only a single square (0=no, 1=yes)
 pill_is_colliding: .byte 0 # 1 if the pill is colliding, 0 if not
 pill_valid: .byte 0      # 1 if the pill is a pill, 0 if the pulled pill is not a pill
+
 # Virus Data
-intitial_virus_count: .byte 3
+intitial_virus_count: .byte 0
+
+# frame data
+frame_counter: .byte 0  # current frame out of 60 that we are on
+frame_input_multiple: .byte 10 # the multiple that allows us to make an input 
 
 ##############################################################################
 # Code
@@ -201,51 +206,21 @@ main:
     lw $a3, BOTTLE_COLOUR
     jal draw_vert_line
     
-    # Draw the Initial viruses
+    # Add the Initial viruses
     
-    addi $a3, $zero, 3
-    jal draw_random_virus
+    lb $a3, intitial_virus_count
+    jal add_random_virus
     
-    # Draw The Initial Capsule
-    
-    # basic start data
-    addi $t0, $zero, 15
-    sb $t0, pill_x
-    addi $t0, $zero, 8
-    sb $t0, pill_y
-    sb $zero, pill_orient
-    sb $zero, pill_single
-    
-    # get random colour (0-2), store in $a0
-    li $v0, 42
-    li $a0, 0
-    li $a1, 3
-    syscall
-    sb $a0, pill_colour_1
-    
-    # get random colour (0-2), store in $a0
-    li $v0, 42
-    li $a0, 0
-    li $a1, 3
-    syscall
-    sb $a0, pill_colour_2
-    
-    
-    
-    jal draw_pill
+    # Add The Initial Capsule
+    jal new_pill
+    jal save_to_game_board
     
 
 game_loop:
-    # 1a. Check if key has been pressed
-    # 1b. Check which key has been pressed
-    # 2a. Check for collisions
-	# 2b. Update locations (capsules)
-	# 3. Draw the screen
-	
-	# Check for keypress
+    # Check for keypress
     lw $t0, ADDR_KBRD          # Load keyboard base address
     lw $t1, 0($t0)             # Read keyboard state
-    beq $t1, $zero, game_loop  # If no key is pressed, continue loop
+    beq $t1, $zero, move_right_skip  # If no key is pressed, continue loop
 
     # Save the current position as the previous position
     lb $t2, pill_x
@@ -256,38 +231,78 @@ game_loop:
     # Get the key code
     lw $t2, 4($t0)             # Load key code
     
-    jal remove_pill
+    addi $sp, $sp, -4           # Move stack pointer to empty location
+    sw $t2, 0($sp)  
+    
+    jal remove_from_game_board
+    
+    lw $t2, 0($sp)  
+    addi $sp, $sp, 4           # Move stack pointer to t2
     
     # Check for 'w' (up)
     li $t3, 0x77               # ASCII for 'w'
     bne $t2, $t3, rotate_skip
+    
+    addi $sp, $sp, -4           # Move stack pointer to empty location
+    sw $t2, 0($sp) 
+    
     jal rotate
+    
+    lw $t2, 0($sp)  
+    addi $sp, $sp, 4           # Move stack pointer to t2
+    
     rotate_skip:
-
+    
     # Check for 's' (down)
     li $t3, 0x73               # ASCII for 's'
     bne $t2, $t3, move_down_skip
+    addi $sp, $sp, -4           # Move stack pointer to empty location
+    sw $t2, 0($sp) 
+    
     jal move_down
+    
+    lw $t2, 0($sp)  
+    addi $sp, $sp, 4           # Move stack pointer to t2
+    
     move_down_skip:
 
     # Check for 'a' (left)
     li $t3, 0x61               # ASCII for 'a'
     bne $t2, $t3, move_left_skip
+    addi $sp, $sp, -4           # Move stack pointer to empty location
+    sw $t2, 0($sp) 
+    
     jal move_left
+    
+    lw $t2, 0($sp)  
+    addi $sp, $sp, 4           # Move stack pointer to t2
+    
     move_left_skip:
 
     # Check for 'd' (right)
     li $t3, 0x64               # ASCII for 'd'
     bne $t2, $t3, move_right_skip
+    addi $sp, $sp, -4           # Move stack pointer to empty location
+    sw $t2, 0($sp) 
+    
     jal move_right
+
+    lw $t2, 0($sp)  
+    addi $sp, $sp, 4           # Move stack pointer to t2
+    
     move_right_skip:
 	
-	draw_capsule:
-	jal draw_pill
+	jal save_to_game_board
+    
+    input_frame_skip:
+    lb $t0, pill_is_colliding
+    beq $t0, $zero, pill_colliding_skip
+    jal detect_matches
+    jal new_pill
+    
+    pill_colliding_skip:
 
-	
-	
-	# 4. Sleep
+    jal draw_from_game_board
     
     li $v0, 32          # Sleep
     lw $a0, FRAME_RATE  # sleep for frame rate amount of time
@@ -295,9 +310,6 @@ game_loop:
     
     # 5. Go back to Step 1
     j game_loop
-
-    
-    
 
 # draw_hor_line(start_x_pos, start_y_pos, length, colour)
 # draws a horizontal line starting at pixel (x,y) for a specified length of a certain colour
@@ -345,11 +357,11 @@ draw_vert_line:
         
         
         
-# draw_random_virus(number_of_viruses)
-# draws number_of_viruses viruses on the screen
+# add_random_virus(number_of_viruses)
+# adds number_of_viruses viruses to the gameboard
 # $a3 - number_of_viruses
-draw_random_virus:
-    beq $a3, $zero, draw_random_virus_end
+add_random_virus:
+    beq $a3, $zero, add_random_virus_end
     
     # get random x offset in pixels (0-7), store in $a0
     li $v0, 42
@@ -380,14 +392,16 @@ draw_random_virus:
     
     addi $sp, $sp, -4           # Move stack pointer to empty location
     sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
-    jal draw_pill
+    
+    jal save_to_game_board
+    
     lw $ra, 0($sp)				# Pop $ra off the stack
     addi $sp, $sp, 4			# Move stack pointer to top element on stack
     
     addi $a3, $a3, -1
-    j draw_random_virus
+    j add_random_virus
     
-    draw_random_virus_end:
+    add_random_virus_end:
         jr $ra 
         
         
@@ -495,10 +509,12 @@ rotate_continue:
     sb $t9, pill_orient     # Save new orientation
 
     # Swap colors for proper orientation
+    bne $t9, $zero, rotate_continue_flip_skip
     lb $t0, pill_colour_1   # Load pill_colour_1
     lb $t1, pill_colour_2   # Load pill_colour_2
     sb $t0, pill_colour_2   # Store pill_colour_1 into pill_colour_2
     sb $t1, pill_colour_1   # Store pill_colour_2 into pill_colour_1
+    rotate_continue_flip_skip:
     jr $ra                  # Return
 
 move_down:
@@ -594,11 +610,6 @@ check_left_double_horizontal:
     lw $t2, BACKGROUND_COLOUR
     bne $t1, $t2, skip_movement # If first pixel is not background, skip
 
-    sub $t7, $t7, 128       # Offset for second pixel (above first pixel)
-    la $t3, GAME_BOARD
-    add $t0, $t3, $t7 # Reset base + offset for second pixel
-    lw $t1, 0($t0)          # Load color of second pixel
-    beq $t1, $t2, skip_movement # If second pixel is not background, skip
     j move_left_continue
 
 check_left_double_vertical:
@@ -689,35 +700,35 @@ skip_movement:
 # 22 - pill_colour_2
 # 11 - pill_colour_1
 save_to_game_board:
-    lw $t0, GAME_BOARD  # Load the address of the game_board in $t0
-    addi $t1, $zero, 128  # Set $t1 to 128, this is the save data that we will be creating
+    la $t0, GAME_BOARD  # Load the address of the game_board in $t0
+    addi $t1, $zero, 64 # Set $t1 to 64, this is the save data that we will be creating
     
     lb $t2, pill_colour_1    # load pill_colour_1 into $t2
-    sll $t2, $t2, 16         # Shift left 24 so it matches to the correct position
-    andi $t1, $t2, 67108863      # Save pill_colour_1 into the data
+    sll $t2, $t2, 24         # Shift left 24 so it matches to the correct position
+    add $t1, $t2, $t1       # Save to data
     
     lb $t2, pill_x          # load pill_x into $t2
     sll $t2, $t2, 16         # Shift left 16 so it matches to the correct position
-    andi $t1, $t2, 67108863      # Save pill_x into the data
+    add $t1, $t2, $t1       # Save to data
     
     lb $t2, pill_y          # load pill_y into $t2
     sll $t2, $t2, 8         # Shift left 8 so it matches to the correct position
-    andi $t1, $t2, 67108863      # Save pill_y into the data
+    add $t1, $t2, $t1       # Save to data
     
     lb $t2, pill_single     # load pill_single into $t2
     sll $t2, $t2, 5         # Shift left 5 so it matches to the correct position
-    andi $t1, $t2, 67108863      # Save pill_single into the data
+    add $t1, $t2, $t1       # Save to data
     
     lb $t2, pill_orient     # load pill_orient into $t2
     sll $t2, $t2, 4         # Shift left 4 so it matches to the correct position
-    andi $t1, $t2, 67108863      # Save pill_orient into the data
+    add $t1, $t2, $t1       # Save to data
     
     lb $t2, pill_colour_2   # load pill_colour_2 into $t2
     sll $t2, $t2, 2         # Shift left 2 so it matches to the correct position
-    andi $t1, $t2, 67108863      # Save pill_colour_2 into the data
+    add $t1, $t2, $t1       # Save to data
     
     lb $t2, pill_colour_1   # load pill_colour_1 into $t2
-    andi $t1, $t2, 67108863      # Save pill_colour_2 into the data
+    add $t1, $t2, $t1       # Save to data
     
     # Save the finished data into the gameboard based on pill_x and pill_y
     lb $t9, pill_x          # load current x pos
@@ -731,13 +742,13 @@ save_to_game_board:
     lb $t2, pill_single     # load pill_single into $t2
     bne $t2, $zero, save_to_game_board_end # if there is only one pill to save to the game board, end
     lb $t2, pill_colour_2    # load pill_colour_2 into $t2
-    sll $t2, $t2, 16         # Shift left 24 so it matches to the correct position
-    andi $t1, $t2, 67108863      # Save pill_colour_2 into the data
+    andi $t1, $t1, 16777215     # remove current saved colour in
+    sll $t2, $t2, 24         # Shift left 24 so it matches to the correct position
+    add $t1, $t2, $t1       # Save to data
     
     lb $t2, pill_orient    # load pill_orient into $t2
     beq $t2, $zero, save_to_game_board_pill_hor #if the pill is horizontal, save the right square with the same information
         # pill is vertical
-        
         addi $t0, $t0, -128 
         sw $t1, 0($t0)
         j save_to_game_board_end
@@ -751,7 +762,7 @@ save_to_game_board:
 # remove_from_game_board()
 # renoves the current pill from the GAME_BOARD
 remove_from_game_board:
-    lw $t0, GAME_BOARD  # Load the address of the game_board in $t0
+    la $t0, GAME_BOARD  # Load the address of the game_board in $t0
     
     # remove current pill on gameboard based on pill_x and pill_y
     lb $t9, pill_x          # load current x pos
@@ -782,7 +793,7 @@ remove_from_game_board:
 # $a0, x_cord (in pixels)
 # $a1, y_cord (in pixels)
 get_from_game_board:
-    lw $t0, GAME_BOARD  # Load the address of the game_board in $t0
+    la $t0, GAME_BOARD  # Load the address of the game_board in $t0
     sll $t9, $a0, 2         # x offset in $t9
     sll $t8, $a1, 7         # y offset in $t8
     add $t0, $t0, $t9       # add x offset
@@ -800,7 +811,7 @@ get_from_game_board:
     andi $t2, $t1, 3        # Store pill_colour_2 data into $t2
     sb $t2, pill_colour_2   # save data
     
-    srl $t1, $t1, 1         # Shift data so pill_orient is next
+    srl $t1, $t1, 2         # Shift data so pill_orient is next
     andi $t2, $t1, 1        # Store pill_orient data into $t2
     sb $t2, pill_orient     # save data
     
@@ -812,7 +823,7 @@ get_from_game_board:
     andi $t2, $t1, 1        # Store pill_single data into $t2
     sb $t2, pill_valid      # save data
     
-    srl $t1, $t1, 9         # Shift data so pill_y is next
+    srl $t1, $t1, 2         # Shift data so pill_y is next
     andi $t2, $t1, 255      # Store pill_y data into $t2
     sb $t2, pill_y          # save data
     
@@ -827,80 +838,82 @@ get_from_game_board:
 # Iterates through the GAME_BOARD grid defined by bottle boundaries and draws pills or background.
 draw_from_game_board:
     # Load bottle boundaries
-    lw $t0, BOTTLE_TOP         # Load top boundary (y start)
-    lw $t1, BOTTLE_BOTTOM      # Load bottom boundary (y end)
-    lw $t2, BOTTLE_LEFT        # Load left boundary (x start)
+    lw $t0, BOTTLE_TOP         # Load top boundary (y start)    curr y
+    lw $t1, BOTTLE_BOTTOM      # Load bottom boundary (y end)   
+    lw $t2, BOTTLE_LEFT        # Load left boundary (x start)   curr x
     lw $t3, BOTTLE_RIGHT       # Load right boundary (x end)
-    lw $t4, BACKGROUND_COLOUR  # Load background colour (black)
-
+    
     # Outer loop: Iterate through rows (y-coordinates)
-    move $t5, $t0              # Initialize row counter (current_y = top)
-draw_from_game_board_row_loop:
-    beq $t5, $t1, draw_from_game_board_end # Stop when we reach bottom boundary
-
-    # Inner loop: Iterate through columns (x-coordinates)
-    move $t6, $t2              # Initialize column counter (current_x = left)
-draw_from_game_board_col_loop:
-    beq $t6, $t3, draw_from_game_board_next_row # Move to the next row when at the right boundary
-
-    # Retrieve game board data for (current_x, current_y)
-    addi $a0, $t6, 0           # $a0 = current_x
-    addi $a1, $t5, 0           # $a1 = current_y
-    jal get_from_game_board    # Load pill data into pill_* variables
-
-    # Check if there's a pill at this location
-    lb $t7, pill_single        # Load pill_single (non-zero if there's a pill)
-    beq $t7, $zero, draw_background # If no pill, draw background
-
-    # Set pill_x and pill_y to the current position
-    sb $t6, pill_x             # pill_x = current_x
-    sb $t5, pill_y             # pill_y = current_y
-
-    # Draw the pill
-    jal draw_pill
-    j draw_from_game_board_next_col # Move to the next column
-
-draw_background:
-    # Draw a black square at (current_x, current_y)
-    lw $t8, GAME_BOARD          # Load game board
-    sll $t9, $t6, 2            # Calculate x offset
-    sll $t2, $t5, 7           # Calculate y offset
-    add $t8, $t8, $t9          # Add x offset
-    add $t8, $t8, $t2         # Add y offset
-    sw $t4, 0($t8)             # Write black (BACKGROUND_COLOUR) to the screen
-
-draw_from_game_board_next_col:
-    addi $t6, $t6, 1           # Increment column counter
-    j draw_from_game_board_col_loop # Repeat inner loop
-
-draw_from_game_board_next_row:
-    addi $t5, $t5, 1           # Increment row counter
-    j draw_from_game_board_row_loop # Repeat outer loop
-
-draw_from_game_board_end:
-    jr $ra                     # Return
-
+    draw_from_game_board_row_loop:
+        beq $t0, $t1, draw_from_game_board_end # Stop when we reach bottom boundary
+        
+        # Inner loop: Iterate through columns (x-coordinates)
+        draw_from_game_board_col_loop:
+            beq $t2, $t3, draw_from_game_board_next_row # Move to the next row when at the right boundary
+            
+            la $t8, GAME_BOARD
+            sll $t9, $t2, 2            # Calculate x offset
+            sll $t7, $t0, 7           # Calculate y offset
+            add $t8, $t8, $t9          # Add x offset
+            add $t8, $t8, $t7         # Add y offset
+            lw $t7, 0($t8)          # load the value at the x and y from gameboard
+           
+            # check if it is a pill
+            andi $t9, $t7, 64
+            beq $t9, $zero, draw_from_game_board_background # if it is a pill
+            
+            # get colour of square
+            srl $t7, $t7, 24
+            sll $t7, $t7, 2
+            la $t9, PILL_RED
+            add $t9, $t9, $t7
+            lw $t4, 0($t9)  # t9 stores colour of pill
+            
+            j draw_from_game_board_draw
+            
+            draw_from_game_board_background:
+                lw $t4, BACKGROUND_COLOUR  # Save 
+                
+            draw_from_game_board_draw:
+                lw $t8, ADDR_DSPL          # Load game board
+                sll $t9, $t2, 2            # Calculate x offset
+                sll $t7, $t0, 7           # Calculate y offset
+                add $t8, $t8, $t9          # Add x offset
+                add $t8, $t8, $t7         # Add y offset
+                sw $t4, 0($t8)              # draw the colour
+                addi $t2, $t2, 1    # move to the next pixel
+                
+                j draw_from_game_board_col_loop
+                
+        draw_from_game_board_next_row:
+            lw $t2, BOTTLE_LEFT        # Load left boundary (x start)   curr x
+            addi $t0, $t0, 1            # increase the row by 1
+            j draw_from_game_board_row_loop
+            
+    draw_from_game_board_end:
+        jr $ra
 
 # detect_matches()
 # detects the 4+ vertical and horizontal matches
 # moves the pills to the correct location following the matches
 detect_matches:
-    lw $t0, GAME_BOARD  # Load the address of the game board in $t0
+    la $t0, GAME_BOARD  # Load the address of the game board in $t0
     
     addi $t1, $zero, 12  # Set $t1 to the current x offset that we are checking (in px)
     addi $t2, $zero, 9  # Set $t2 to the current y offset that we are checking (in px)
     detect_matches_row:
-        addi $t9, $zero, 25 # store 25 in $t9
+        addi $t9, $zero, 24 # store 25 in $t9
         bge $t2, $t9, detect_matches_end   # while y <= 15 (25 - 9 = 16)
         detect_matches_row_square:
             addi $t9, $zero, 20 #store 20 in $t9
             bge $t1, $t9, detect_matches_row_end   # while x <= 7 (20 - 12 = 8)
+            
             sll $t9, $t1, 2
             sll $t8, $t2, 7
             add $t7, $t9, $t0
             add $t7, $t7, $t8
             lw $t7, 0($t7)
-            beq $t7, $zero, detect_matches_row_end # ... and board[x,y] != black
+            beq $t7, $zero, detect_matches_row_square_end #  if board[x,y] != black
             
             addi $sp, $sp, -4           # Move stack pointer to empty location
             sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
@@ -950,6 +963,10 @@ detect_matches:
             lw $ra, 0($sp)				# Pop $ra off the stack
             addi $sp, $sp, 4			# Move stack pointer to top element on stack
             
+            # Check if there is a match, if not, jump to the end
+            add $t9, $t3, $t4
+            beq $t9, $zero, detect_matches_row_square_end
+            
             add $t5, $zero, $zero      # iteratior initialized to zero in $t5
             detect_matches_horziontal_clear_loop:
                 bge $t5, $t3, detect_matches_vertical_clear_loop # while i < horizontal connection length
@@ -988,6 +1005,7 @@ detect_matches:
                 addi $t5, $t5, 1            # i += 1
                 j detect_matches_horziontal_clear_loop
             
+            add $t5, $zero, $zero      # iteratior initialized to zero in $t5
             detect_matches_vertical_clear_loop:
                 bge $t5, $t4, detect_matches_clear_end # while i < vertical connection length
                 
@@ -1024,41 +1042,9 @@ detect_matches:
                 
                 addi $t5, $t5, 1            # i += 1
                 j detect_matches_vertical_clear_loop
+                
         
         detect_matches_clear_end:
-            addi $t9, $zero, 12  # load the left bound of x
-            beq $t1, $t9, detect_matches_left_skip # if x != 0
-            
-            addi $sp, $sp, -4           # Move stack pointer to empty location
-            sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
-            addi $sp, $sp, -4           # Move stack pointer to empty location
-            sw $t0, 0($sp)              # Push board onto the stack, to keep it safe
-            addi $sp, $sp, -4           # Move stack pointer to empty location
-            sw $t1, 0($sp)              # Push x onto the stack, to keep it safe
-            addi $sp, $sp, -4           # Move stack pointer to empty location
-            sw $t2, 0($sp)              # Push y onto the stack, to keep it safe
-            addi $sp, $sp, -4           # Move stack pointer to empty location
-            sw $t3, 0($sp)              # Push horizontal match onto the stack, to keep it safe
-            addi $sp, $sp, -4           # Move stack pointer to empty location
-            sw $t4, 0($sp)              # Push vertical match onto the stack, to keep it safe
-            
-            addi $a0, $t1, -1           # set the first argument of the function (x - 1)
-            add $a1, $t2, $zero         # set the second argument of the function (y)
-            jal drop_pill_and_above
-            
-            lw $t4, 0($sp)				# Pop vertical match off the stack
-            addi $sp, $sp, 4			# Move stack pointer to top element on stack
-            lw $t3, 0($sp)				# Pop horizontal match off the stack
-            addi $sp, $sp, 4			# Move stack pointer to top element on stack
-            lw $t2, 0($sp)				# Pop y off the stack
-            addi $sp, $sp, 4			# Move stack pointer to top element on stack
-            lw $t1, 0($sp)				# Pop x off the stack
-            addi $sp, $sp, 4			# Move stack pointer to top element on stack
-            lw $t0, 0($sp)				# Pop board off the stack
-            addi $sp, $sp, 4			# Move stack pointer to top element on stack
-            lw $ra, 0($sp)				# Pop $ra off the stack
-            addi $sp, $sp, 4			# Move stack pointer to top element on stack
-            
             addi $t5, $zero, 0          # set $t5 to be the iterator starting at 0
             detect_matches_vetical_left_loop:
                 bge $t5, $t4, detect_matches_left_skip # while i < length of vertical match
@@ -1097,43 +1083,12 @@ detect_matches:
                 lw $ra, 0($sp)				# Pop $ra off the stack
                 addi $sp, $sp, 4			# Move stack pointer to top element on stack
                 
+                addi $t5, $t5, 1
+                
                 j detect_matches_vetical_left_loop
                 
         detect_matches_left_skip:
-            addi $t9, $zero, 19     # load the right bound of x + horizontal match
-            add $t8, $t1, $t3       # load x + r into $t8
-            bge $t8, $t9, detect_matches_right_skip # if x + r < 8
-            
-            addi $sp, $sp, -4           # Move stack pointer to empty location
-            sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
-            addi $sp, $sp, -4           # Move stack pointer to empty location
-            sw $t0, 0($sp)              # Push board onto the stack, to keep it safe
-            addi $sp, $sp, -4           # Move stack pointer to empty location
-            sw $t1, 0($sp)              # Push x onto the stack, to keep it safe
-            addi $sp, $sp, -4           # Move stack pointer to empty location
-            sw $t2, 0($sp)              # Push y onto the stack, to keep it safe
-            addi $sp, $sp, -4           # Move stack pointer to empty location
-            sw $t3, 0($sp)              # Push horizontal match onto the stack, to keep it safe
-            addi $sp, $sp, -4           # Move stack pointer to empty location
-            sw $t4, 0($sp)              # Push vertical match onto the stack, to keep it safe
-            
-            add $a0, $t1, $t3            # set the first argument of the function (x + r)
-            add $a1, $t2, $zero          # set the second argument of the function (y)
-            jal drop_pill_and_above
-            
-            lw $t4, 0($sp)				# Pop vertical match off the stack
-            addi $sp, $sp, 4			# Move stack pointer to top element on stack
-            lw $t3, 0($sp)				# Pop horizontal match off the stack
-            addi $sp, $sp, 4			# Move stack pointer to top element on stack
-            lw $t2, 0($sp)				# Pop y off the stack
-            addi $sp, $sp, 4			# Move stack pointer to top element on stack
-            lw $t1, 0($sp)				# Pop x off the stack
-            addi $sp, $sp, 4			# Move stack pointer to top element on stack
-            lw $t0, 0($sp)				# Pop board off the stack
-            addi $sp, $sp, 4			# Move stack pointer to top element on stack
-            lw $ra, 0($sp)				# Pop $ra off the stack
-            addi $sp, $sp, 4			# Move stack pointer to top element on stack
-            
+        
             addi $t5, $zero, 0          # set $t5 to be the iterator starting at 0
             detect_matches_vetical_right_loop:
                 bge $t5, $t4, detect_matches_right_skip # while i < length of vertical match
@@ -1153,7 +1108,7 @@ detect_matches:
                 addi $sp, $sp, -4           # Move stack pointer to empty location
                 sw $t5, 0($sp)              # Push iterator onto the stack, to keep it safe
                 
-                add $a0, $t1, $t3            # set the first argument of the function (x + r)
+                addi $a0, $t1, 1            # set the first argument of the function (x + 1)
                 add $a1, $t2, $t5           # set the second argument of the function (y + i)
                 jal drop_pill_and_above
                 
@@ -1172,45 +1127,15 @@ detect_matches:
                 lw $ra, 0($sp)				# Pop $ra off the stack
                 addi $sp, $sp, 4			# Move stack pointer to top element on stack
                 
+                addi $t5, $t5, 1
+                
                 j detect_matches_vetical_right_loop
         
         detect_matches_right_skip:
-            addi $t9, $zero, 8  # load the top bound of y
-            ble $t2, $t9, detect_matches_row_end # if y > 0
-            
-            addi $sp, $sp, -4           # Move stack pointer to empty location
-            sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
-            addi $sp, $sp, -4           # Move stack pointer to empty location
-            sw $t0, 0($sp)              # Push board onto the stack, to keep it safe
-            addi $sp, $sp, -4           # Move stack pointer to empty location
-            sw $t1, 0($sp)              # Push x onto the stack, to keep it safe
-            addi $sp, $sp, -4           # Move stack pointer to empty location
-            sw $t2, 0($sp)              # Push y onto the stack, to keep it safe
-            addi $sp, $sp, -4           # Move stack pointer to empty location
-            sw $t3, 0($sp)              # Push horizontal match onto the stack, to keep it safe
-            addi $sp, $sp, -4           # Move stack pointer to empty location
-            sw $t4, 0($sp)              # Push vertical match onto the stack, to keep it safe
-            
-            addi $a0, $t1, 0           # set the first argument of the function (x)
-            addi $a1, $t2, -1         # set the second argument of the function (y - 1)
-            jal drop_pill_and_above
-            
-            lw $t4, 0($sp)				# Pop vertical match off the stack
-            addi $sp, $sp, 4			# Move stack pointer to top element on stack
-            lw $t3, 0($sp)				# Pop horizontal match off the stack
-            addi $sp, $sp, 4			# Move stack pointer to top element on stack
-            lw $t2, 0($sp)				# Pop y off the stack
-            addi $sp, $sp, 4			# Move stack pointer to top element on stack
-            lw $t1, 0($sp)				# Pop x off the stack
-            addi $sp, $sp, 4			# Move stack pointer to top element on stack
-            lw $t0, 0($sp)				# Pop board off the stack
-            addi $sp, $sp, 4			# Move stack pointer to top element on stack
-            lw $ra, 0($sp)				# Pop $ra off the stack
-            addi $sp, $sp, 4			# Move stack pointer to top element on stack
             
             addi $t5, $zero, 0          # set $t5 to be the iterator starting at 0
             detect_matches_horizontal_loop:
-                bge $t5, $t3, detect_matches_row_end # while i < length of horizontal match
+                bge $t5, $t3, detect_matches_row_square_end # while i < length of horizontal match
                 
                 addi $sp, $sp, -4           # Move stack pointer to empty location
                 sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
@@ -1246,9 +1171,14 @@ detect_matches:
                 lw $ra, 0($sp)				# Pop $ra off the stack
                 addi $sp, $sp, 4			# Move stack pointer to top element on stack
                 
+                addi $t5, $t5, 1
+                
                 j detect_matches_horizontal_loop
             
-            
+        detect_matches_row_square_end:
+            addi $t1, $t1, 1    # x += 1
+            j detect_matches_row_square
+        
         detect_matches_row_end:
             addi $t1, $zero, 12  # set x back to zeroth position
             addi $t2, $t2, 1    # move y to the next row
@@ -1273,13 +1203,14 @@ detect_horizontal_connection:
     and $t1, $t1, 50331712  # bit mask to only grab the colour (also grabs wether it is a pill or not)
     
     detect_horizontal_connection_loop:
-        addi $t9, $zero, 8 #store 8 in $t9
+        addi $t9, $zero, 20 #store 8 in $t9
         bge $a0, $t9, detect_horizontal_connection_loop_end   # while x <= 7
         sll $t9, $a0, 2     # multiply the x value by 4
         sll $t8, $a1, 7     # multiply the y valye by 128
         add $t2, $a2, $t9   # make $t2 the position of the square we are currently at
         add $t2, $t2, $t8
         lw $t2, 0($t2)  # make $t2 the colour we are currently at
+        and $t2, $t2, 50331712  # bit mask to only grab the colour (also grabs wether it is a pill or not)
         bne $t1, $t2, detect_horizontal_connection_loop_end # ... and display[x,y] == colour
         addi $a0, $a0, 1    # move to the next pixel
         addi $t0, $t0, 1    # increase our current length by 1
@@ -1311,13 +1242,14 @@ detect_vertical_connection:
     and $t1, $t1, 50331712  # bit mask to only grab the colour (also grabs wether it is a pill or not)
     
     detect_vertical_connection_loop:
-        addi $t9, $zero, 16 #store 8 in $t9
+        addi $t9, $zero, 24 #store 8 in $t9
         bge $a1, $t9, detect_vertical_connection_loop_end   # while y <= 15
         sll $t9, $a0, 2     # multiply the x value by 4
         sll $t8, $a1, 7     # multiply the y valye by 128
         add $t2, $a2, $t9   # make $t2 the position of the square we are currently at
         add $t2, $t2, $t8
         lw $t2, 0($t2)  # make $t2 the colour we are currently at
+        and $t2, $t2, 50331712  # bit mask to only grab the colour (also grabs wether it is a pill or not)
         bne $t1, $t2, detect_vertical_connection_loop_end # ... and display[x,y] == colour
         addi $a1, $a1, 1    # move to the next pixel down
         addi $t0, $t0, 1    # increase our current length by 1
@@ -1427,19 +1359,63 @@ drop_pill_and_above:
     
     lw $ra, 0($sp)				# Pop $ra off the stack
     addi $sp, $sp, 4			# Move stack pointer to top element on stack
-
+    
     lb $t0, pill_valid
     beq $t0, $zero, drop_pill_and_above_not_valid   # if pill is valid
+    
+    # set a0 and a1 to new pill
+    lb $a0, pill_x
+    lb $a1, pill_y
+    
+    addi $sp, $sp, -4           # Move stack pointer to empty location
+    sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
+    addi $sp, $sp, -4           # Move stack pointer to empty location
+    sw $a0, 0($sp)              # Push x onto the stack, to keep it safe
+    addi $sp, $sp, -4           # Move stack pointer to empty location
+    sw $a1, 0($sp)              # Push y onto the stack, to keep it safe
+  
+    jal remove_from_game_board     
+    
+    lw $a1, 0($sp)				# Pop y off the stack
+    addi $sp, $sp, 4			# Move stack pointer to top element on stack
+    lw $a0, 0($sp)				# Pop x off the stack
+    addi $sp, $sp, 4			# Move stack pointer to top element on stack
+    lw $ra, 0($sp)				# Pop $ra off the stack
+    addi $sp, $sp, 4			# Move stack pointer to top element on stack
     
     drop_pill_and_above_move_down:
         lb $t0, pill_is_colliding
         bne $t0, $zero, drop_pill_and_above_move_down_done # while pill is not colliding
+        
+        addi $sp, $sp, -4           # Move stack pointer to empty location
+        sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
+        
         jal move_down # move the pill down
+        
+        lw $ra, 0($sp)				# Pop $ra off the stack
+        addi $sp, $sp, 4			# Move stack pointer to top element on stack
+        
         j drop_pill_and_above_move_down
         
     drop_pill_and_above_move_down_done:
+        addi $sp, $sp, -4           # Move stack pointer to empty location
+        sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
+        addi $sp, $sp, -4           # Move stack pointer to empty location
+        sw $a0, 0($sp)              # Push x onto the stack, to keep it safe
+        addi $sp, $sp, -4           # Move stack pointer to empty location
+        sw $a1, 0($sp)              # Push y onto the stack, to keep it safe
+      
+        jal save_to_game_board   
+        
+        lw $a1, 0($sp)				# Pop y off the stack
+        addi $sp, $sp, 4			# Move stack pointer to top element on stack
+        lw $a0, 0($sp)				# Pop x off the stack
+        addi $sp, $sp, 4			# Move stack pointer to top element on stack
+        lw $ra, 0($sp)				# Pop $ra off the stack
+        addi $sp, $sp, 4			# Move stack pointer to top element on stack
+        
         lb $t0, pill_single
-        bne $t0, $zero, drop_pill_and_above_not_single # if pill is single
+        beq $t0, $zero, drop_pill_and_above_not_single # if pill is single
         
         addi $sp, $sp, -4           # Move stack pointer to empty location
         sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
@@ -1465,7 +1441,7 @@ drop_pill_and_above:
         lb $t0, pill_orient
         bne $t0, $zero, drop_pill_and_above_not_horizontal  #if pill is horizontal
         
-         addi $sp, $sp, -4           # Move stack pointer to empty location
+        addi $sp, $sp, -4           # Move stack pointer to empty location
         sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
         addi $sp, $sp, -4           # Move stack pointer to empty location
         sw $a0, 0($sp)              # Push x onto the stack, to keep it safe
@@ -1526,3 +1502,33 @@ drop_pill_and_above:
             
     drop_pill_and_above_not_valid:
         jr $ra
+
+# new_pill()
+# updates the pill information with information for a new pill the player can use
+new_pill:
+    # basic start data
+    addi $t0, $zero, 15
+    sb $t0, pill_x
+    addi $t0, $zero, 8
+    sb $t0, pill_y
+    sb $zero, pill_orient
+    sb $zero, pill_single
+    sb $zero, pill_is_colliding
+    addi $t0, $zero, 1
+    sb $t0, pill_valid
+    
+    # get random colour (0-2), store in $a0
+    li $v0, 42
+    li $a0, 0
+    li $a1, 3
+    syscall
+    sb $a0, pill_colour_1
+    
+    # get random colour (0-2), store in $a0
+    li $v0, 42
+    li $a0, 0
+    li $a1, 3
+    syscall
+    sb $a0, pill_colour_2
+    
+    jr $ra
