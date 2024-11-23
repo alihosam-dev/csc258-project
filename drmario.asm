@@ -56,7 +56,8 @@ pill_x: .byte 15 # X coord of pill in pixels
 pill_y: .byte 8 # Y coord of pill in pixels
 pill_orient: .byte 0 # orientation of pill, 0 = horizontal, 1 = vertical
 pill_single: .byte 1 # is the pill only a single square (0=no, 1=yes)
-
+pill_is_colliding: .byte 0 # 1 if the pill is colliding, 0 if not
+pill_valid: .byte 0      # 1 if the pill is a pill, 0 if the pulled pill is not a pill
 # Virus Data
 intitial_virus_count: .byte 3
 
@@ -594,7 +595,8 @@ skip_movement:
 # save_to_game_board()
 # Saves the current pill information to the GAME_BOARD
 # pill information is stored in the gameboard as follows:
-# XXXXXXXX (xxxxxxxx) (yyyyyyyy) X(p)(s)(o)(22)(11)
+# XXXXXX(cc) (xxxxxxxx) (yyyyyyyy) X(p)(s)(o)(22)(11)
+# cc - the actual colour of that square location
 # xxxxxxxx - pill_x
 # yyyyyyyy - pill_y
 # p - signifies this is a valid pill and not and empty place in memory (ie, if there is a pill in this location, it will always be 1)
@@ -604,30 +606,34 @@ skip_movement:
 # 11 - pill_colour_1
 save_to_game_board:
     lw $t0, GAME_BOARD  # Load the address of the game_board in $t0
-    addi $t1, $zero, 16777215  # Set $t1 to 128, this is the save data that we will be creating
+    addi $t1, $zero, 128  # Set $t1 to 128, this is the save data that we will be creating
+    
+    lb $t2, pill_colour_1    # load pill_colour_1 into $t2
+    sll $t2, $t2, 16         # Shift left 24 so it matches to the correct position
+    andi $t1, $t2, 67108863      # Save pill_colour_1 into the data
     
     lb $t2, pill_x          # load pill_x into $t2
     sll $t2, $t2, 16         # Shift left 16 so it matches to the correct position
-    andi $t1, $t2, 16777215      # Save pill_x into the data
+    andi $t1, $t2, 67108863      # Save pill_x into the data
     
     lb $t2, pill_y          # load pill_y into $t2
     sll $t2, $t2, 8         # Shift left 8 so it matches to the correct position
-    andi $t1, $t2, 16777215      # Save pill_y into the data
+    andi $t1, $t2, 67108863      # Save pill_y into the data
     
     lb $t2, pill_single     # load pill_single into $t2
     sll $t2, $t2, 5         # Shift left 5 so it matches to the correct position
-    andi $t1, $t2, 16777215      # Save pill_single into the data
+    andi $t1, $t2, 67108863      # Save pill_single into the data
     
     lb $t2, pill_orient     # load pill_orient into $t2
     sll $t2, $t2, 4         # Shift left 4 so it matches to the correct position
-    andi $t1, $t2, 16777215      # Save pill_orient into the data
+    andi $t1, $t2, 67108863      # Save pill_orient into the data
     
     lb $t2, pill_colour_2   # load pill_colour_2 into $t2
     sll $t2, $t2, 2         # Shift left 2 so it matches to the correct position
-    andi $t1, $t2, 16777215      # Save pill_colour_2 into the data
+    andi $t1, $t2, 67108863      # Save pill_colour_2 into the data
     
     lb $t2, pill_colour_1   # load pill_colour_1 into $t2
-    andi $t1, $t2, 16777215      # Save pill_colour_2 into the data
+    andi $t1, $t2, 67108863      # Save pill_colour_2 into the data
     
     # Save the finished data into the gameboard based on pill_x and pill_y
     lb $t9, pill_x          # load current x pos
@@ -640,9 +646,14 @@ save_to_game_board:
     
     lb $t2, pill_single     # load pill_single into $t2
     bne $t2, $zero, save_to_game_board_end # if there is only one pill to save to the game board, end
+    lb $t2, pill_colour_2    # load pill_colour_2 into $t2
+    sll $t2, $t2, 16         # Shift left 24 so it matches to the correct position
+    andi $t1, $t2, 67108863      # Save pill_colour_2 into the data
+    
     lb $t2, pill_orient    # load pill_orient into $t2
     beq $t2, $zero, save_to_game_board_pill_hor #if the pill is horizontal, save the right square with the same information
         # pill is vertical
+        
         addi $t0, $t0, -128 
         sw $t1, 0($t0)
         j save_to_game_board_end
@@ -694,6 +705,8 @@ get_from_game_board:
     add $t0, $t0, $t8       # add y offset
     
     lw $t1, 0($t0)                          # Load the pill data into $t1 at the specific pixel coords
+    sb $zero, pill_valid                    # not sure if we have a valid pill or not
+    sb $zero, pill_is_colliding             # set the current pill to not be colliding
     beq $t1, $zero, get_from_game_board_end # pill data cannot be all zeros because of the p signifier bit 
     
     andi $t2, $t1, 3        # Store pill_colour_1 data into $t2
@@ -708,8 +721,12 @@ get_from_game_board:
     sb $t2, pill_orient     # save data
     
     srl $t1, $t1, 1         # Shift data so pill_single is next
-    andi $t2, $t1, 1        # Store pill_orient data into $t2
+    andi $t2, $t1, 1        # Store pill_single data into $t2
     sb $t2, pill_single     # save data
+    
+    srl $t1, $t1, 1         # Shift data so pill_valid is next
+    andi $t2, $t1, 1        # Store pill_single data into $t2
+    sb $t2, pill_valid      # save data
     
     srl $t1, $t1, 9         # Shift data so pill_y is next
     andi $t2, $t1, 255      # Store pill_y data into $t2
@@ -721,6 +738,649 @@ get_from_game_board:
     
     get_from_game_board_end:
         jr $ra  #return
+
+# detect_matches()
+# detects the 4+ vertical and horizontal matches
+# moves the pills to the correct location following the matches
+detect_matches:
+    lw $t0, GAME_BOARD  # Load the address of the game board in $t0
+    
+    addi $t1, $zero, 12  # Set $t1 to the current x offset that we are checking (in px)
+    addi $t2, $zero, 9  # Set $t2 to the current y offset that we are checking (in px)
+    detect_matches_row:
+        addi $t9, $zero, 25 # store 25 in $t9
+        bge $t2, $t9, detect_matches_end   # while y <= 15 (25 - 9 = 16)
+        detect_matches_row_square:
+            addi $t9, $zero, 20 #store 20 in $t9
+            bge $t1, $t9, detect_matches_row_end   # while x <= 7 (20 - 12 = 8)
+            sll $t9, $t1, 2
+            sll $t8, $t2, 7
+            add $t7, $t9, $t0
+            add $t7, $t7, $t8
+            lw $t7, 0($t7)
+            beq $t7, $zero, detect_matches_row_end # ... and board[x,y] != black
+            
+            addi $sp, $sp, -4           # Move stack pointer to empty location
+            sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
+            addi $sp, $sp, -4           # Move stack pointer to empty location
+            sw $t0, 0($sp)              # Push board onto the stack, to keep it safe
+            addi $sp, $sp, -4           # Move stack pointer to empty location
+            sw $t1, 0($sp)              # Push x onto the stack, to keep it safe
+            addi $sp, $sp, -4           # Move stack pointer to empty location
+            sw $t2, 0($sp)              # Push y onto the stack, to keep it safe
+            
+            add $a0, $t1, $zero        # set the first argument of the function (x)
+            add $a1, $t2, $zero        # set the second argument of the function (y)
+            add $a2, $t0, $zero        # set the second argument of the function (board)
+            jal detect_horizontal_connection
+            add $t3, $zero, $v0         # save the returned connection length value from the horizontal function in $t3 (in px)
+            
+            lw $t2, 0($sp)				# Pop y off the stack
+            addi $sp, $sp, 4			# Move stack pointer to top element on stack
+            lw $t1, 0($sp)				# Pop x off the stack
+            addi $sp, $sp, 4			# Move stack pointer to top element on stack
+            lw $t0, 0($sp)				# Pop board off the stack
+            addi $sp, $sp, 4			# Move stack pointer to top element on stack
+            lw $ra, 0($sp)				# Pop $ra off the stack
+            addi $sp, $sp, 4			# Move stack pointer to top element on stack
+            
+            addi $sp, $sp, -4           # Move stack pointer to empty location
+            sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
+            addi $sp, $sp, -4           # Move stack pointer to empty location
+            sw $t0, 0($sp)              # Push board onto the stack, to keep it safe
+            addi $sp, $sp, -4           # Move stack pointer to empty location
+            sw $t1, 0($sp)              # Push x onto the stack, to keep it safe
+            addi $sp, $sp, -4           # Move stack pointer to empty location
+            sw $t2, 0($sp)              # Push y onto the stack, to keep it safe
+            
+            add $a0, $t1, $zero        # set the first argument of the function (x)
+            add $a1, $t2, $zero        # set the second argument of the function (y)
+            add $a2, $t0, $zero        # set the second argument of the function (board)
+            jal detect_vertical_connection
+            add $t4, $zero, $v0         # save the returned connection length value from the vertical function in $t4 (in px)
+            
+            lw $t2, 0($sp)				# Pop y off the stack
+            addi $sp, $sp, 4			# Move stack pointer to top element on stack
+            lw $t1, 0($sp)				# Pop x off the stack
+            addi $sp, $sp, 4			# Move stack pointer to top element on stack
+            lw $t0, 0($sp)				# Pop board off the stack
+            addi $sp, $sp, 4			# Move stack pointer to top element on stack
+            lw $ra, 0($sp)				# Pop $ra off the stack
+            addi $sp, $sp, 4			# Move stack pointer to top element on stack
+            
+            add $t5, $zero, $zero      # iteratior initialized to zero in $t5
+            detect_matches_horziontal_clear_loop:
+                bge $t5, $t3, detect_matches_vertical_clear_loop # while i < horizontal connection length
+                
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t0, 0($sp)              # Push board onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t1, 0($sp)              # Push x onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t2, 0($sp)              # Push y onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t3, 0($sp)              # Push horizontal match onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t4, 0($sp)              # Push vertical match onto the stack, to keep it safe
+                
+                add $a0, $t1, $t5          # set the first argument of the function (x + i)
+                add $a1, $t2, $zero        # set the second argument of the function (y)
+                add $a2, $t0, $zero        # set the second argument of the function (board)
+                jal clear_pill
+                
+                lw $t4, 0($sp)				# Pop vertical match off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $t3, 0($sp)				# Pop horizontal match off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $t2, 0($sp)				# Pop y off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $t1, 0($sp)				# Pop x off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $t0, 0($sp)				# Pop board off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $ra, 0($sp)				# Pop $ra off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                
+                addi $t5, $t5, 1            # i += 1
+                j detect_matches_horziontal_clear_loop
+            
+            detect_matches_vertical_clear_loop:
+                bge $t5, $t4, detect_matches_clear_end # while i < vertical connection length
+                
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t0, 0($sp)              # Push board onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t1, 0($sp)              # Push x onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t2, 0($sp)              # Push y onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t3, 0($sp)              # Push horizontal match onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t4, 0($sp)              # Push vertical match onto the stack, to keep it safe
+                
+                add $a0, $t1, $zero         # set the first argument of the function (x)
+                add $a1, $t2, $t5           # set the second argument of the function (y + i)
+                add $a2, $t0, $zero        # set the second argument of the function (board)
+                jal clear_pill
+                
+                lw $t4, 0($sp)				# Pop vertical match off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $t3, 0($sp)				# Pop horizontal match off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $t2, 0($sp)				# Pop y off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $t1, 0($sp)				# Pop x off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $t0, 0($sp)				# Pop board off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $ra, 0($sp)				# Pop $ra off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                
+                addi $t5, $t5, 1            # i += 1
+                j detect_matches_vertical_clear_loop
         
+        detect_matches_clear_end:
+            addi $t9, $zero, 12  # load the left bound of x
+            beq $t1, $t9, detect_matches_left_skip # if x != 0
+            
+            addi $sp, $sp, -4           # Move stack pointer to empty location
+            sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
+            addi $sp, $sp, -4           # Move stack pointer to empty location
+            sw $t0, 0($sp)              # Push board onto the stack, to keep it safe
+            addi $sp, $sp, -4           # Move stack pointer to empty location
+            sw $t1, 0($sp)              # Push x onto the stack, to keep it safe
+            addi $sp, $sp, -4           # Move stack pointer to empty location
+            sw $t2, 0($sp)              # Push y onto the stack, to keep it safe
+            addi $sp, $sp, -4           # Move stack pointer to empty location
+            sw $t3, 0($sp)              # Push horizontal match onto the stack, to keep it safe
+            addi $sp, $sp, -4           # Move stack pointer to empty location
+            sw $t4, 0($sp)              # Push vertical match onto the stack, to keep it safe
+            
+            addi $a0, $t1, -1           # set the first argument of the function (x - 1)
+            add $a1, $t2, $zero         # set the second argument of the function (y)
+            jal drop_pill_and_above
+            
+            lw $t4, 0($sp)				# Pop vertical match off the stack
+            addi $sp, $sp, 4			# Move stack pointer to top element on stack
+            lw $t3, 0($sp)				# Pop horizontal match off the stack
+            addi $sp, $sp, 4			# Move stack pointer to top element on stack
+            lw $t2, 0($sp)				# Pop y off the stack
+            addi $sp, $sp, 4			# Move stack pointer to top element on stack
+            lw $t1, 0($sp)				# Pop x off the stack
+            addi $sp, $sp, 4			# Move stack pointer to top element on stack
+            lw $t0, 0($sp)				# Pop board off the stack
+            addi $sp, $sp, 4			# Move stack pointer to top element on stack
+            lw $ra, 0($sp)				# Pop $ra off the stack
+            addi $sp, $sp, 4			# Move stack pointer to top element on stack
+            
+            addi $t5, $zero, 0          # set $t5 to be the iterator starting at 0
+            detect_matches_vetical_left_loop:
+                bge $t5, $t4, detect_matches_left_skip # while i < length of vertical match
+                
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t0, 0($sp)              # Push board onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t1, 0($sp)              # Push x onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t2, 0($sp)              # Push y onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t3, 0($sp)              # Push horizontal match onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t4, 0($sp)              # Push vertical match onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t5, 0($sp)              # Push iterator onto the stack, to keep it safe
+                
+                addi $a0, $t1, -1           # set the first argument of the function (x - 1)
+                add $a1, $t2, $t5         # set the second argument of the function (y + i)
+                jal drop_pill_and_above
+                
+                lw $t5, 0($sp)				# Pop iterator off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $t4, 0($sp)				# Pop vertical match off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $t3, 0($sp)				# Pop horizontal match off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $t2, 0($sp)				# Pop y off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $t1, 0($sp)				# Pop x off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $t0, 0($sp)				# Pop board off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $ra, 0($sp)				# Pop $ra off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                
+                j detect_matches_vetical_left_loop
+                
+        detect_matches_left_skip:
+            addi $t9, $zero, 19     # load the right bound of x + horizontal match
+            add $t8, $t1, $t3       # load x + r into $t8
+            bge $t8, $t9, detect_matches_right_skip # if x + r < 8
+            
+            addi $sp, $sp, -4           # Move stack pointer to empty location
+            sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
+            addi $sp, $sp, -4           # Move stack pointer to empty location
+            sw $t0, 0($sp)              # Push board onto the stack, to keep it safe
+            addi $sp, $sp, -4           # Move stack pointer to empty location
+            sw $t1, 0($sp)              # Push x onto the stack, to keep it safe
+            addi $sp, $sp, -4           # Move stack pointer to empty location
+            sw $t2, 0($sp)              # Push y onto the stack, to keep it safe
+            addi $sp, $sp, -4           # Move stack pointer to empty location
+            sw $t3, 0($sp)              # Push horizontal match onto the stack, to keep it safe
+            addi $sp, $sp, -4           # Move stack pointer to empty location
+            sw $t4, 0($sp)              # Push vertical match onto the stack, to keep it safe
+            
+            add $a0, $t1, $t3            # set the first argument of the function (x + r)
+            add $a1, $t2, $zero          # set the second argument of the function (y)
+            jal drop_pill_and_above
+            
+            lw $t4, 0($sp)				# Pop vertical match off the stack
+            addi $sp, $sp, 4			# Move stack pointer to top element on stack
+            lw $t3, 0($sp)				# Pop horizontal match off the stack
+            addi $sp, $sp, 4			# Move stack pointer to top element on stack
+            lw $t2, 0($sp)				# Pop y off the stack
+            addi $sp, $sp, 4			# Move stack pointer to top element on stack
+            lw $t1, 0($sp)				# Pop x off the stack
+            addi $sp, $sp, 4			# Move stack pointer to top element on stack
+            lw $t0, 0($sp)				# Pop board off the stack
+            addi $sp, $sp, 4			# Move stack pointer to top element on stack
+            lw $ra, 0($sp)				# Pop $ra off the stack
+            addi $sp, $sp, 4			# Move stack pointer to top element on stack
+            
+            addi $t5, $zero, 0          # set $t5 to be the iterator starting at 0
+            detect_matches_vetical_right_loop:
+                bge $t5, $t4, detect_matches_right_skip # while i < length of vertical match
+                
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t0, 0($sp)              # Push board onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t1, 0($sp)              # Push x onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t2, 0($sp)              # Push y onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t3, 0($sp)              # Push horizontal match onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t4, 0($sp)              # Push vertical match onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t5, 0($sp)              # Push iterator onto the stack, to keep it safe
+                
+                add $a0, $t1, $t3            # set the first argument of the function (x + r)
+                add $a1, $t2, $t5           # set the second argument of the function (y + i)
+                jal drop_pill_and_above
+                
+                lw $t5, 0($sp)				# Pop iterator off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $t4, 0($sp)				# Pop vertical match off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $t3, 0($sp)				# Pop horizontal match off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $t2, 0($sp)				# Pop y off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $t1, 0($sp)				# Pop x off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $t0, 0($sp)				# Pop board off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $ra, 0($sp)				# Pop $ra off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                
+                j detect_matches_vetical_right_loop
+        
+        detect_matches_right_skip:
+            addi $t9, $zero, 8  # load the top bound of y
+            ble $t2, $t9, detect_matches_row_end # if y > 0
+            
+            addi $sp, $sp, -4           # Move stack pointer to empty location
+            sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
+            addi $sp, $sp, -4           # Move stack pointer to empty location
+            sw $t0, 0($sp)              # Push board onto the stack, to keep it safe
+            addi $sp, $sp, -4           # Move stack pointer to empty location
+            sw $t1, 0($sp)              # Push x onto the stack, to keep it safe
+            addi $sp, $sp, -4           # Move stack pointer to empty location
+            sw $t2, 0($sp)              # Push y onto the stack, to keep it safe
+            addi $sp, $sp, -4           # Move stack pointer to empty location
+            sw $t3, 0($sp)              # Push horizontal match onto the stack, to keep it safe
+            addi $sp, $sp, -4           # Move stack pointer to empty location
+            sw $t4, 0($sp)              # Push vertical match onto the stack, to keep it safe
+            
+            addi $a0, $t1, 0           # set the first argument of the function (x)
+            addi $a1, $t2, -1         # set the second argument of the function (y - 1)
+            jal drop_pill_and_above
+            
+            lw $t4, 0($sp)				# Pop vertical match off the stack
+            addi $sp, $sp, 4			# Move stack pointer to top element on stack
+            lw $t3, 0($sp)				# Pop horizontal match off the stack
+            addi $sp, $sp, 4			# Move stack pointer to top element on stack
+            lw $t2, 0($sp)				# Pop y off the stack
+            addi $sp, $sp, 4			# Move stack pointer to top element on stack
+            lw $t1, 0($sp)				# Pop x off the stack
+            addi $sp, $sp, 4			# Move stack pointer to top element on stack
+            lw $t0, 0($sp)				# Pop board off the stack
+            addi $sp, $sp, 4			# Move stack pointer to top element on stack
+            lw $ra, 0($sp)				# Pop $ra off the stack
+            addi $sp, $sp, 4			# Move stack pointer to top element on stack
+            
+            addi $t5, $zero, 0          # set $t5 to be the iterator starting at 0
+            detect_matches_horizontal_loop:
+                bge $t5, $t3, detect_matches_row_end # while i < length of horizontal match
+                
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t0, 0($sp)              # Push board onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t1, 0($sp)              # Push x onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t2, 0($sp)              # Push y onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t3, 0($sp)              # Push horizontal match onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t4, 0($sp)              # Push vertical match onto the stack, to keep it safe
+                addi $sp, $sp, -4           # Move stack pointer to empty location
+                sw $t5, 0($sp)              # Push iterator onto the stack, to keep it safe
+                
+                add $a0, $t1, $t5            # set the first argument of the function (x + i)
+                addi $a1, $t2, -1         # set the second argument of the function (y - 1)
+                jal drop_pill_and_above
+                
+                lw $t5, 0($sp)				# Pop iterator off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $t4, 0($sp)				# Pop vertical match off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $t3, 0($sp)				# Pop horizontal match off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $t2, 0($sp)				# Pop y off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $t1, 0($sp)				# Pop x off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $t0, 0($sp)				# Pop board off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                lw $ra, 0($sp)				# Pop $ra off the stack
+                addi $sp, $sp, 4			# Move stack pointer to top element on stack
+                
+                j detect_matches_horizontal_loop
+            
+            
+        detect_matches_row_end:
+            addi $t1, $zero, 12  # set x back to zeroth position
+            addi $t2, $t2, 1    # move y to the next row
+            j detect_matches_row # start checking matches in the next row
+        
+    detect_matches_end:
+        jr $ra  #return
+            
+# detect_horizontal_connection(x, y, board) -> connection length
+# Detect the length of the horizontal connection for a given x and y value
+# $a0 - x value in px
+# $a1 - y value in px
+# $a2 - top left square of the game board
+# $v0 - return value, length of connection in px
+detect_horizontal_connection:
+    addi $t0, $zero, 0  # current length of the connection in  $t0
+    sll $t9, $a0, 2     # multiply the x value by 4
+    sll $t8, $a1, 7     # multiply the y valye by 128
+    add $t1, $a2, $t9   # make $t1 the position of the square we start off at
+    add $t1, $t1, $t8
+    lw $t1, 0($t1)  # make $t1 the the full square information
+    and $t1, $t1, 50331712  # bit mask to only grab the colour (also grabs wether it is a pill or not)
+    
+    detect_horizontal_connection_loop:
+        addi $t9, $zero, 8 #store 8 in $t9
+        bge $a0, $t9, detect_horizontal_connection_loop_end   # while x <= 7
+        sll $t9, $a0, 2     # multiply the x value by 4
+        sll $t8, $a1, 7     # multiply the y valye by 128
+        add $t2, $a2, $t9   # make $t2 the position of the square we are currently at
+        add $t2, $t2, $t8
+        lw $t2, 0($t2)  # make $t2 the colour we are currently at
+        bne $t1, $t2, detect_horizontal_connection_loop_end # ... and display[x,y] == colour
+        addi $a0, $a0, 1    # move to the next pixel
+        addi $t0, $t0, 1    # increase our current length by 1
+        j detect_horizontal_connection_loop # continue looping
+        
+    detect_horizontal_connection_loop_end:
+        addi $t9, $zero, 3 #store 4 in $t9
+        ble $t0, $t9, detect_horizontal_connection_end  # if current length >= 4
+        addi $v0, $t0, 0  # return current length
+        jr $ra
+        
+    detect_horizontal_connection_end:
+        addi $v0, $zero, 0  # return 0
+        jr $ra
+        
+# detect_horizontal_connection(x, y, board) -> connection length
+# Detect the length of the horizontal connection for a given x and y value
+# $a0 - x value in px
+# $a1 - y value in px
+# $a2 - top left square of the game board
+# $v0 - return value, length of connection in px
+detect_vertical_connection:
+    addi $t0, $zero, 0  # current length of the connection in  $t0
+    sll $t9, $a0, 2     # multiply the x value by 4
+    sll $t8, $a1, 7     # multiply the y value by 128
+    add $t1, $a2, $t9   # make $t1 the position of the square we start off at
+    add $t1, $t1, $t8
+    lw $t1, 0($t1)  # make $t1 the the full square information
+    and $t1, $t1, 50331712  # bit mask to only grab the colour (also grabs wether it is a pill or not)
+    
+    detect_vertical_connection_loop:
+        addi $t9, $zero, 16 #store 8 in $t9
+        bge $a1, $t9, detect_vertical_connection_loop_end   # while y <= 15
+        sll $t9, $a0, 2     # multiply the x value by 4
+        sll $t8, $a1, 7     # multiply the y valye by 128
+        add $t2, $a2, $t9   # make $t2 the position of the square we are currently at
+        add $t2, $t2, $t8
+        lw $t2, 0($t2)  # make $t2 the colour we are currently at
+        bne $t1, $t2, detect_vertical_connection_loop_end # ... and display[x,y] == colour
+        addi $a1, $a1, 1    # move to the next pixel down
+        addi $t0, $t0, 1    # increase our current length by 1
+        j detect_vertical_connection_loop # continue looping
+        
+    detect_vertical_connection_loop_end:
+        addi $t9, $zero, 3 #store 4 in $t9
+        ble $t0, $t9, detect_vertical_connection_end  # if current length >= 4
+        addi $v0, $t0, 0  # return current length
+        jr $ra
+        
+    detect_vertical_connection_end:
+        addi $v0, $zero, 0  # return 0
+        jr $ra
 
+# clear_pill(x, y, board)
+# this pill has been cleared by the player, remove it from the gameboard accourdinly and update the pill information to reflect it
+# $a0 - x value in px
+# $a1 - y value in px
+# $a2 - top left square of the game board (0,0) on the playable surface
+clear_pill:
+    addi $sp, $sp, -4           # Move stack pointer to empty location
+    sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
+    addi $sp, $sp, -4           # Move stack pointer to empty location
+    sw $a0, 0($sp)              # Push x onto the stack, to keep it safe
+    addi $sp, $sp, -4           # Move stack pointer to empty location
+    sw $a1, 0($sp)              # Push y onto the stack, to keep it safe
+    addi $sp, $sp, -4           # Move stack pointer to empty location
+    sw $a2, 0($sp)              # Push board onto the stack, to keep it safe
+    
+    jal get_from_game_board
+    
+    lw $a2, 0($sp)				# Pop board off the stack
+    addi $sp, $sp, 4			# Move stack pointer to top element on stack
+    lw $a1, 0($sp)				# Pop y off the stack
+    addi $sp, $sp, 4			# Move stack pointer to top element on stack
+    lw $a0, 0($sp)				# Pop x off the stack
+    addi $sp, $sp, 4			# Move stack pointer to top element on stack
+    lw $ra, 0($sp)				# Pop $ra off the stack
+    addi $sp, $sp, 4			# Move stack pointer to top element on stack
+    
+    lb $t0, pill_single         # load pill_single into $t0
+    bne $t0, $zero, clear_pill_end # if pill is not single
+    
+    lb $t0, pill_x         # load pill_x into $t0
+    lb $t1, pill_y         # load pill_y into $t1
+    
+    bne $t0, $a0, pill_clear_not_main_location
+    bne $t1, $a1, pill_clear_not_main_location  # if pill_x == x && pill_y == y
+    
+    # adjust new single_pill
+    addi $t0, $t0, 1
+    lb $t9, pill_orient
+    sub $t0, $t0, $t9
+    sb $t0, pill_x
+    
+    sub $t1, $t1, $t9
+    sb $t1, pill_y
+    
+    addi $t9, $zero, 1
+    sb $t9, pill_single
+    
+    lb $t0, pill_colour_2   # set pill colour 1 to colour 2
+    sb $t0, pill_colour_1
+    
+    addi $sp, $sp, -4           # Move stack pointer to empty location
+    sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
+    
+    jal save_to_game_board
+    
+    lw $ra, 0($sp)				# Pop $ra off the stack
+    addi $sp, $sp, 4			# Move stack pointer to top element on stack
+    
+    j clear_pill_end
+    
+    pill_clear_not_main_location:
+        addi $t9, $zero, 1
+        sb $t9, pill_single
+        
+        addi $sp, $sp, -4           # Move stack pointer to empty location
+        sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
+        
+        jal save_to_game_board
+        
+        lw $ra, 0($sp)				# Pop $ra off the stack
+        addi $sp, $sp, 4			# Move stack pointer to top element on stack
+        
+        j clear_pill_end
 
+    clear_pill_end:
+        sll $t9, $a0, 2     # multiply the x value by 4
+        sll $t8, $a1, 7     # multiply the y value by 128
+        add $t1, $a2, $t9   # make $t1 the position of the square we start off at
+        add $t1, $t1, $t8
+        sw $zero, 0($t1)    # board[x,y] = empty
+        jr $ra
+        
+# drop_pill_and_above(x,y)
+# drops the pill at the x and y location and also all of the pills above that pill
+# $a0 - x location in px
+# $a1 - y location in px
+drop_pill_and_above:
+    addi $sp, $sp, -4           # Move stack pointer to empty location
+    sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
+    
+    jal get_from_game_board
+    
+    lw $ra, 0($sp)				# Pop $ra off the stack
+    addi $sp, $sp, 4			# Move stack pointer to top element on stack
+
+    lb $t0, pill_valid
+    beq $t0, $zero, drop_pill_and_above_not_valid   # if pill is valid
+    
+    drop_pill_and_above_move_down:
+        lb $t0, pill_is_colliding
+        bne $t0, $zero, drop_pill_and_above_move_down_done # while pill is not colliding
+        jal move_down # move the pill down
+        j drop_pill_and_above_move_down
+        
+    drop_pill_and_above_move_down_done:
+        lb $t0, pill_single
+        bne $t0, $zero, drop_pill_and_above_not_single # if pill is single
+        
+        addi $sp, $sp, -4           # Move stack pointer to empty location
+        sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
+        addi $sp, $sp, -4           # Move stack pointer to empty location
+        sw $a0, 0($sp)              # Push x onto the stack, to keep it safe
+        addi $sp, $sp, -4           # Move stack pointer to empty location
+        sw $a1, 0($sp)              # Push y onto the stack, to keep it safe
+        
+        addi $a0, $a0, 0            
+        addi $a1, $a1, -1            
+        jal drop_pill_and_above     # drop_pill_and_above(x, y - 1)
+        
+        lw $a1, 0($sp)				# Pop y off the stack
+        addi $sp, $sp, 4			# Move stack pointer to top element on stack
+        lw $a0, 0($sp)				# Pop x off the stack
+        addi $sp, $sp, 4			# Move stack pointer to top element on stack
+        lw $ra, 0($sp)				# Pop $ra off the stack
+        addi $sp, $sp, 4			# Move stack pointer to top element on stack
+        
+        jr $ra  # return
+        
+    drop_pill_and_above_not_single:
+        lb $t0, pill_orient
+        bne $t0, $zero, drop_pill_and_above_not_horizontal  #if pill is horizontal
+        
+         addi $sp, $sp, -4           # Move stack pointer to empty location
+        sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
+        addi $sp, $sp, -4           # Move stack pointer to empty location
+        sw $a0, 0($sp)              # Push x onto the stack, to keep it safe
+        addi $sp, $sp, -4           # Move stack pointer to empty location
+        sw $a1, 0($sp)              # Push y onto the stack, to keep it safe
+        
+        addi $a0, $a0, 0            
+        addi $a1, $a1, -1            
+        jal drop_pill_and_above     # drop_pill_and_above(x, y - 1)
+        
+        lw $a1, 0($sp)				# Pop y off the stack
+        addi $sp, $sp, 4			# Move stack pointer to top element on stack
+        lw $a0, 0($sp)				# Pop x off the stack
+        addi $sp, $sp, 4			# Move stack pointer to top element on stack
+        lw $ra, 0($sp)				# Pop $ra off the stack
+        addi $sp, $sp, 4			# Move stack pointer to top element on stack
+        
+        addi $sp, $sp, -4           # Move stack pointer to empty location
+        sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
+        addi $sp, $sp, -4           # Move stack pointer to empty location
+        sw $a0, 0($sp)              # Push x onto the stack, to keep it safe
+        addi $sp, $sp, -4           # Move stack pointer to empty location
+        sw $a1, 0($sp)              # Push y onto the stack, to keep it safe
+        
+        addi $a0, $a0, 1            
+        addi $a1, $a1, -1            
+        jal drop_pill_and_above     # drop_pill_and_above(x + 1, y - 1)
+        
+        lw $a1, 0($sp)				# Pop y off the stack
+        addi $sp, $sp, 4			# Move stack pointer to top element on stack
+        lw $a0, 0($sp)				# Pop x off the stack
+        addi $sp, $sp, 4			# Move stack pointer to top element on stack
+        lw $ra, 0($sp)				# Pop $ra off the stack
+        addi $sp, $sp, 4			# Move stack pointer to top element on stack
+        
+        jr $ra  # return
+        
+    drop_pill_and_above_not_horizontal:
+        # pill is vertical
+        
+        addi $sp, $sp, -4           # Move stack pointer to empty location
+        sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
+        addi $sp, $sp, -4           # Move stack pointer to empty location
+        sw $a0, 0($sp)              # Push x onto the stack, to keep it safe
+        addi $sp, $sp, -4           # Move stack pointer to empty location
+        sw $a1, 0($sp)              # Push y onto the stack, to keep it safe
+        
+        addi $a0, $a0, 0            
+        addi $a1, $a1, -2            
+        jal drop_pill_and_above     # drop_pill_and_above(x, y - 2)
+        
+        lw $a1, 0($sp)				# Pop y off the stack
+        addi $sp, $sp, 4			# Move stack pointer to top element on stack
+        lw $a0, 0($sp)				# Pop x off the stack
+        addi $sp, $sp, 4			# Move stack pointer to top element on stack
+        lw $ra, 0($sp)				# Pop $ra off the stack
+        addi $sp, $sp, 4			# Move stack pointer to top element on stack
+            
+    drop_pill_and_above_not_valid:
+        jr $ra
