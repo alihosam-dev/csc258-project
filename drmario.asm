@@ -48,6 +48,9 @@ VIRUS_YELLOW: .word 0xA89E32
 PREV_CAPSULE_X: .word 15     # Previous X position of capsule
 PREV_CAPSULE_Y: .word 5      # Previous Y position of capsule
 
+gravity_speed_increaser: .word 200
+gravity_speed_counter: .word 0
+
 # frame data
 INPUT_FRAME_DELAY: .byte 2
 
@@ -73,7 +76,7 @@ intitial_virus_count: .byte 3
 input_frame_counter: .byte 0  # current frame 
 
 # Gravity data
-gravity_clock: .byte 15 
+gravity_clock: .byte 20  
 gravity_counter: .byte 0
 
 ##############################################################################
@@ -230,8 +233,25 @@ game_loop:
 
     lb $t9, input_frame_counter
     lb $t8, INPUT_FRAME_DELAY
-    bne $t9, $t8, input_frame_skip
+    ble $t9, $t8, input_frame_skip
     sb $zero, input_frame_counter
+    
+    #update gravity speed if needed
+    lw $t9, gravity_speed_counter
+    lw $t8, gravity_speed_increaser
+    bne $t9, $t8, gravity_speed_skip
+    sw $zero, gravity_speed_counter
+    lb $t7, gravity_clock
+    addi $t7, $t7, -1
+    bne $t7, $zero, gravity_min_skip
+    addi $t7, $zero, 1
+    gravity_min_skip:
+    sb $t7, gravity_clock
+    gravity_speed_skip:
+    lw $t9, gravity_speed_counter
+    addi $t9, $t9, 1
+    sw $t9, gravity_speed_counter
+    
     # Check for keypress
     lw $t0, ADDR_KBRD          # Load keyboard base address
     lw $t1, 0($t0)             # Read keyboard state
@@ -309,7 +329,7 @@ game_loop:
     
     lb $t9, gravity_clock
     lb $t8, gravity_counter
-    bne $t9, $t8, gravity_skip 
+    ble $t8, $t9, gravity_skip 
     #gravity
     sb $zero, gravity_counter
     jal remove_from_game_board
