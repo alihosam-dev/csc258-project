@@ -64,6 +64,7 @@ game_state: .byte 0     # represents what state the game is currently in
                         # 1 - playing
                         # 2 - paused
                         # 3 - end screen
+total_virus: .byte 1
 
 # Pill Data
 pill_colour_1: .byte 0 # colour of square 1 of pill (0-2)
@@ -275,11 +276,29 @@ game_loop:
     
     
     game_state_0_skip:
-    
     addi $t1, $zero, 1
     bne $t0, $t1, game_state_1_skip
     # Game State 1
+
+    lb $t9, total_virus
+    bne $t9, $zero, level_complete_skip
+    # move back to menu
     
+    jal game_state_0_init
+    lb $t0, game_state
+    addi $t0, $t0, -1
+    sb $t0, game_state
+    
+    # Level Complete Sound
+    li $v0, 31
+    li $a0, 95
+    li $a1, 50
+    li $a2, 110
+    li $a3, 2000
+    syscall
+    j game_loop
+    
+    level_complete_skip:
     
     lb $t9, input_frame_counter
     lb $t8, INPUT_FRAME_DELAY
@@ -343,6 +362,13 @@ game_loop:
     lw $t2, 0($sp)  
     addi $sp, $sp, 4           # Move stack pointer to t2
     
+     # Rotate Sound
+    li $v0, 31
+    li $a0, 90
+    li $a1, 50
+    li $a2, 120
+    li $a3, 100
+    syscall
     rotate_skip:
     
     # Check for 's' (down)
@@ -355,6 +381,14 @@ game_loop:
     
     lw $t2, 0($sp)  
     addi $sp, $sp, 4           # Move stack pointer to t2
+    
+    # Move_down Sound
+    li $v0, 31
+    li $a0, 40
+    li $a1, 50
+    li $a2, 70
+    li $a3, 100
+    syscall
     
     move_down_skip:
 
@@ -405,6 +439,8 @@ game_loop:
     lb $t0, pill_is_colliding
     beq $t0, $zero, pill_colliding_skip
     jal detect_matches
+    # get total virsus
+    jal get_total_virus
     jal new_pill
     
     pill_colliding_skip:
@@ -1033,6 +1069,14 @@ detect_matches:
             add $t9, $t3, $t4
             beq $t9, $zero, detect_matches_row_square_end
             
+            # Play match sound
+            li $v0, 31
+            li $a0, 90
+            li $a1, 50
+            li $a2, 50
+            li $a3, 100
+            syscall
+            
             add $t5, $zero, $zero      # iteratior initialized to zero in $t5
             detect_matches_horziontal_clear_loop:
                 bge $t5, $t3, detect_matches_vertical_clear_loop # while i < horizontal connection length
@@ -1637,9 +1681,27 @@ new_pill:
     
 # game_state_0_init
 # Initilaze game state 0
-game_state_0_init:    
+game_state_0_init:
+    li $t0, 300
+    sw $t0, gravity_speed_increaser
+    li $t0, 4
+    sb $t0, intitial_virus_count
+    li $t0, 20
+    sb $t0, gravity_clock
+    li $t0, 8
+    sb $t0, start_menu_selector_x
+    li $t0, 4
+    sb $t0, start_menu_selector_y
+
     addi $sp, $sp, -4           # Move stack pointer to empty location
     sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 0
+    addi $a1, $zero, 0
+    addi $a2, $zero, 1024
+    lw $a3, BACKGROUND_COLOUR
+    jal draw_hor_line
     
     lw $t0, ADDR_DSPL
     addi $a0, $zero, 7
@@ -1834,7 +1896,15 @@ game_state_1_init:
     addi $sp, $sp, -4           # Move stack pointer to empty location
     sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
     
+    # Clear Screen and gameboard
     lw $t0, ADDR_DSPL
+    addi $a0, $zero, 0
+    addi $a1, $zero, 0
+    addi $a2, $zero, 1024
+    lw $a3, BACKGROUND_COLOUR
+    jal draw_hor_line
+    
+    la $t0, GAME_BOARD
     addi $a0, $zero, 0
     addi $a1, $zero, 0
     addi $a2, $zero, 1024
@@ -1911,7 +1981,7 @@ game_state_1_init:
     la $t0, GAME_BOARD
     addi $a0, $zero, 11
     addi $a1, $zero, 7
-    addi $a2, $zero, 4
+    addi $a2, $zero, 10
     lw $a3, BOTTLE_COLOUR
     jal draw_hor_line
     
@@ -1976,6 +2046,9 @@ game_state_1_init:
     lb $a3, intitial_virus_count
     jal add_random_virus
     
+    # get total virsus
+    jal get_total_virus
+    
     # Add The Initial Capsule
     jal new_pill
     jal save_to_game_board
@@ -1984,3 +2057,60 @@ game_state_1_init:
     addi $sp, $sp, 4			# Move stack pointer to top element on stack
     
     jr $ra
+
+# get_total_virus()
+# gets the total number of viruses on the screen
+# updates the total_virus variable
+get_total_virus:
+    sb $zero, pill_is_virus
+    lb $t0, BOTTLE_LEFT # curr x
+    lb $t1, BOTTLE_TOP  # curr y
+    addi $t4, $zero, 0  # number of viruses found
+    
+    get_total_virus_row:
+    lb $t3, BOTTLE_BOTTOM
+    beq $t1, $t3, get_total_virus_end   # while y < bottom
+        
+        get_total_virus_row_square:
+        lb $t2, BOTTLE_RIGHT
+        beq $t0, $t2, get_total_virus_row_end    # while x < right
+        
+            addi $sp, $sp, -4
+            sw $ra, 0($sp)
+            addi $sp, $sp, -4
+            sw $t0, 0($sp)
+            addi $sp, $sp, -4
+            sw $t1, 0($sp)
+            addi $sp, $sp, -4
+            sw $t4, 0($sp)
+            
+            move $a0, $t0   
+            move $a1, $t1
+            jal get_from_game_board
+            
+            lw $t4, 0($sp)				
+            addi $sp, $sp, 4
+            lw $t1, 0($sp)				
+            addi $sp, $sp, 4
+            lw $t0, 0($sp)				
+            addi $sp, $sp, 4
+            lw $ra, 0($sp)				
+            addi $sp, $sp, 4
+            
+            lb $t5, pill_is_virus
+            beq $t5, $zero, get_total_virus_row_square_end
+            addi $t4, $t4, 1
+            sb $zero, pill_is_virus
+        get_total_virus_row_square_end:
+            addi $t0, $t0, 1
+            j get_total_virus_row_square
+        
+    get_total_virus_row_end:
+        lb $t0, BOTTLE_LEFT # reset x
+        addi $t1, $t1, 1
+        j get_total_virus_row
+    
+    get_total_virus_end:
+        sb $t4, total_virus
+        
+        jr $ra
