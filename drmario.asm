@@ -63,7 +63,7 @@ game_state: .byte 0     # represents what state the game is currently in
                         # 0 - Start screen
                         # 1 - playing
                         # 2 - paused
-                        # 3 - end screen
+                        # 3 - game_over
 total_virus: .byte 1
 
 # Pill Data
@@ -456,6 +456,29 @@ game_loop:
     
     game_state_1_skip:
     
+    addi $t1, $zero, 3
+    bne $t0, $t1, game_state_3_skip
+    # Game State 3
+    lw $t0, ADDR_KBRD          # Load keyboard base address
+    lw $t1, 0($t0)             # Read keyboard state
+    beq $t1, $zero, game_over_input_skip  # If no key is pressed, continue loop
+    lw $t2, 4($t0)             # Load key code
+    
+    li $t3, 0x71               # ASCII for 'w'
+    bne $t2, $t3, game_over_quit_skip
+    li $v0, 10
+    syscall
+    game_over_quit_skip:
+    
+    li $t3, 0x79               # ASCII for 'y'
+    bne $t2, $t3, game_over_y_skip
+    sb $zero, game_state
+    jal game_state_0_init
+    game_over_y_skip:
+    game_over_input_skip:
+    j game_loop
+    game_state_3_skip:
+    j game_loop
     
 # draw_hor_line(start_x_pos, start_y_pos, length, colour)
 # draws a horizontal line starting at pixel (x,y) for a specified length of a certain colour
@@ -1651,6 +1674,17 @@ drop_pill_and_above:
 # new_pill()
 # updates the pill information with information for a new pill the player can use
 new_pill:
+    la $t0, GAME_BOARD
+    addi $t0, $t0, 1084 # start pill location
+    lw $t0, 0($t0)  # get value
+    beq $t0, $zero, new_pill_is_ok
+    # There is something where we are trying to make a pill
+    li $t0, 3 
+    sb $t0, game_state # set the game state to game over
+    jal game_state_3_init
+    j game_loop
+    
+    new_pill_is_ok:
     # basic start data
     addi $t0, $zero, 15
     sb $t0, pill_x
@@ -2052,6 +2086,365 @@ game_state_1_init:
     # Add The Initial Capsule
     jal new_pill
     jal save_to_game_board
+    
+    lw $ra, 0($sp)				# Pop $ra off the stack
+    addi $sp, $sp, 4			# Move stack pointer to top element on stack
+    
+    jr $ra
+    
+game_state_3_init:
+    addi $sp, $sp, -4			
+    sw $ra, 0($sp)			
+    
+    # Clear Screen and gameboard
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 0
+    addi $a1, $zero, 0
+    addi $a2, $zero, 1024
+    lw $a3, BACKGROUND_COLOUR
+    jal draw_hor_line
+    
+    # G
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 2
+    addi $a1, $zero, 1
+    addi $a2, $zero, 3
+    li $a3, 0xFFFFFF
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 2
+    addi $a1, $zero, 1
+    addi $a2, $zero, 4
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 2
+    addi $a1, $zero, 4
+    addi $a2, $zero, 3
+    li $a3, 0xFFFFFF
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 4
+    addi $a1, $zero, 3
+    addi $a2, $zero, 2
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    # A
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 6
+    addi $a1, $zero, 1
+    addi $a2, $zero, 3
+    li $a3, 0xFFFFFF
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 6
+    addi $a1, $zero, 3
+    addi $a2, $zero, 3
+    li $a3, 0xFFFFFF
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 6
+    addi $a1, $zero, 1
+    addi $a2, $zero, 4
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 8
+    addi $a1, $zero, 1
+    addi $a2, $zero, 4
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    # M
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 10
+    addi $a1, $zero, 1
+    addi $a2, $zero, 4
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 11
+    addi $a1, $zero, 2
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 12
+    addi $a1, $zero, 3
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 13
+    addi $a1, $zero, 2
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 14
+    addi $a1, $zero, 1
+    addi $a2, $zero, 4
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    # e
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 16
+    addi $a1, $zero, 1
+    addi $a2, $zero, 4
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 17
+    addi $a1, $zero, 1
+    addi $a2, $zero, 2
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 17
+    addi $a1, $zero, 4
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    # O
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 2
+    addi $a1, $zero, 6
+    addi $a2, $zero, 4
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 3
+    addi $a1, $zero, 6
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 4
+    addi $a1, $zero, 6
+    addi $a2, $zero, 4
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 3
+    addi $a1, $zero, 9
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    # V
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 6
+    addi $a1, $zero, 6
+    addi $a2, $zero, 3
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 7
+    addi $a1, $zero, 9
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 8
+    addi $a1, $zero, 6
+    addi $a2, $zero, 3
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    # e
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 10
+    addi $a1, $zero, 6
+    addi $a2, $zero, 4
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 11
+    addi $a1, $zero, 6
+    addi $a2, $zero, 2
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 11
+    addi $a1, $zero, 9
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    # R
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 13
+    addi $a1, $zero, 6
+    addi $a2, $zero, 4
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 14
+    addi $a1, $zero, 6
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 14
+    addi $a1, $zero, 8
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 15
+    addi $a1, $zero, 7
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 15
+    addi $a1, $zero, 9
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    # P
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 2
+    addi $a1, $zero, 17
+    addi $a2, $zero, 4
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 3
+    addi $a1, $zero, 17
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 3
+    addi $a1, $zero, 19
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 4
+    addi $a1, $zero, 18
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    # L
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 6
+    addi $a1, $zero, 17
+    addi $a2, $zero, 4
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 7
+    addi $a1, $zero, 20
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    # A
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 9
+    addi $a1, $zero, 17
+    addi $a2, $zero, 4
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 11
+    addi $a1, $zero, 17
+    addi $a2, $zero, 4
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 10
+    addi $a1, $zero, 17
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 10
+    addi $a1, $zero, 19
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    #Y
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 13
+    addi $a1, $zero, 17
+    addi $a2, $zero, 2
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 14
+    addi $a1, $zero, 19
+    addi $a2, $zero, 2
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 15
+    addi $a1, $zero, 17
+    addi $a2, $zero, 2
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    # ->
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 17
+    addi $a1, $zero, 19
+    addi $a2, $zero, 5
+    li $a3, 0xFFFFFF
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 20
+    addi $a1, $zero, 18
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 20
+    addi $a1, $zero, 20
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_hor_line
     
     lw $ra, 0($sp)				# Pop $ra off the stack
     addi $sp, $sp, 4			# Move stack pointer to top element on stack
