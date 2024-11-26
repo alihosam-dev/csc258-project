@@ -284,10 +284,13 @@ game_loop:
     bne $t9, $zero, level_complete_skip
     # move back to menu
     
-    jal game_state_0_init
-    lb $t0, game_state
-    addi $t0, $t0, -1
-    sb $t0, game_state
+    lb $t9, intitial_virus_count
+    addi $t9, $t9, 4
+    sb $t9, intitial_virus_count
+    lw $t9, gravity_speed_increaser
+    addi $t9, $t9, -10
+    sw $t9, gravity_speed_increaser
+    jal game_state_1_init
     
     # Level Complete Sound
     li $v0, 31
