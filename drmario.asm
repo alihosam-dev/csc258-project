@@ -48,7 +48,7 @@ VIRUS_YELLOW: .word 0xA89E32
 PREV_CAPSULE_X: .word 15     # Previous X position of capsule
 PREV_CAPSULE_Y: .word 5      # Previous Y position of capsule
 
-gravity_speed_increaser: .word 200
+gravity_speed_increaser: .word 300
 gravity_speed_counter: .word 0
 
 # frame data
@@ -57,6 +57,13 @@ INPUT_FRAME_DELAY: .byte 2
 ##############################################################################
 # Mutable Data
 ##############################################################################
+
+# Game State Data 
+game_state: .byte 0     # represents what state the game is currently in
+                        # 0 - Start screen
+                        # 1 - playing
+                        # 2 - paused
+                        # 3 - end screen
 
 # Pill Data
 pill_colour_1: .byte 0 # colour of square 1 of pill (0-2)
@@ -70,7 +77,7 @@ pill_valid: .byte 0      # 1 if the pill is a pill, 0 if the pulled pill is not 
 pill_is_virus: .byte 0  # 1 if the pill is a virus, 0 if not
 
 # Virus Data
-intitial_virus_count: .byte 3
+intitial_virus_count: .byte 4
 
 # Frame Counter
 input_frame_counter: .byte 0  # current frame 
@@ -78,6 +85,10 @@ input_frame_counter: .byte 0  # current frame
 # Gravity data
 gravity_clock: .byte 20  
 gravity_counter: .byte 0
+
+# Start Menu Values
+start_menu_selector_x: .byte 8 
+start_menu_selector_y: .byte 4
 
 ##############################################################################
 # Code
@@ -89,148 +100,187 @@ gravity_counter: .byte 0
 main:
     # Initialize the game
     
-    # Draw the bottle
-    lw $t0, ADDR_DSPL
-    addi $a0, $zero, 11
-    addi $a1, $zero, 7
-    addi $a2, $zero, 4
-    lw $a3, BOTTLE_COLOUR
-    jal draw_hor_line
+    jal game_state_0_init
     
-    lw $t0, ADDR_DSPL
-    addi $a0, $zero, 17
-    addi $a1, $zero, 7
-    addi $a2, $zero, 4
-    lw $a3, BOTTLE_COLOUR
-    jal draw_hor_line
-    
-    lw $t0, ADDR_DSPL
-    addi $a0, $zero, 11
-    addi $a1, $zero, 24
-    addi $a2, $zero, 10
-    lw $a3, BOTTLE_COLOUR
-    jal draw_hor_line
-    
-    lw $t0, ADDR_DSPL
-    addi $a0, $zero, 13
-    addi $a1, $zero, 4
-    addi $a2, $zero, 2
-    lw $a3, BOTTLE_COLOUR
-    jal draw_vert_line
-    
-    lw $t0, ADDR_DSPL
-    addi $a0, $zero, 18
-    addi $a1, $zero, 4
-    addi $a2, $zero, 2
-    lw $a3, BOTTLE_COLOUR
-    jal draw_vert_line
-    
-    lw $t0, ADDR_DSPL
-    addi $a0, $zero, 14
-    addi $a1, $zero, 5
-    addi $a2, $zero, 2
-    lw $a3, BOTTLE_COLOUR
-    jal draw_vert_line
-    
-    lw $t0, ADDR_DSPL
-    addi $a0, $zero, 17
-    addi $a1, $zero, 5
-    addi $a2, $zero, 2
-    lw $a3, BOTTLE_COLOUR
-    jal draw_vert_line
-    
-    lw $t0, ADDR_DSPL
-    addi $a0, $zero, 11
-    addi $a1, $zero, 8
-    addi $a2, $zero, 16
-    lw $a3, BOTTLE_COLOUR
-    jal draw_vert_line
-    
-    lw $t0, ADDR_DSPL
-    addi $a0, $zero, 20
-    addi $a1, $zero, 8
-    addi $a2, $zero, 16
-    lw $a3, BOTTLE_COLOUR
-    jal draw_vert_line
-    
-    
-    # Adding the bottle bounds to the game board
-    # Draw the bottle
-    la $t0, GAME_BOARD
-    addi $a0, $zero, 11
-    addi $a1, $zero, 7
-    addi $a2, $zero, 4
-    lw $a3, BOTTLE_COLOUR
-    jal draw_hor_line
-    
-    la $t0, GAME_BOARD
-    addi $a0, $zero, 17
-    addi $a1, $zero, 7
-    addi $a2, $zero, 4
-    lw $a3, BOTTLE_COLOUR
-    jal draw_hor_line
-    
-    la $t0, GAME_BOARD
-    addi $a0, $zero, 11
-    addi $a1, $zero, 24
-    addi $a2, $zero, 10
-    lw $a3, BOTTLE_COLOUR
-    jal draw_hor_line
-    
-    la $t0, GAME_BOARD
-    addi $a0, $zero, 13
-    addi $a1, $zero, 4
-    addi $a2, $zero, 2
-    lw $a3, BOTTLE_COLOUR
-    jal draw_vert_line
-    
-    la $t0, GAME_BOARD
-    addi $a0, $zero, 18
-    addi $a1, $zero, 4
-    addi $a2, $zero, 2
-    lw $a3, BOTTLE_COLOUR
-    jal draw_vert_line
-    
-    la $t0, GAME_BOARD
-    addi $a0, $zero, 14
-    addi $a1, $zero, 5
-    addi $a2, $zero, 2
-    lw $a3, BOTTLE_COLOUR
-    jal draw_vert_line
-    
-    la $t0, GAME_BOARD
-    addi $a0, $zero, 17
-    addi $a1, $zero, 5
-    addi $a2, $zero, 2
-    lw $a3, BOTTLE_COLOUR
-    jal draw_vert_line
-    
-    la $t0, GAME_BOARD
-    addi $a0, $zero, 11
-    addi $a1, $zero, 8
-    addi $a2, $zero, 16
-    lw $a3, BOTTLE_COLOUR
-    jal draw_vert_line
-    
-    la $t0, GAME_BOARD
-    addi $a0, $zero, 20
-    addi $a1, $zero, 8
-    addi $a2, $zero, 16
-    lw $a3, BOTTLE_COLOUR
-    jal draw_vert_line
-    
-    # Add the Initial viruses
-    
-    lb $a3, intitial_virus_count
-    jal add_random_virus
-    
-    # Add The Initial Capsule
-    jal new_pill
-    jal save_to_game_board
-    
-
 game_loop:
-
+    lb $t0, game_state
+    addi $t1, $zero, 0
+    bne $t0, $t1, game_state_0_skip
+    # Game State 0
+    
+    # Check for keypress
+    lw $t0, ADDR_KBRD          # Load keyboard base address
+    lw $t1, 0($t0)             # Read keyboard state
+    beq $t1, $zero, menu_input_skip  # If no key is pressed, continue loop
+    
+    lw $t2, 4($t0)             # Load key code
+    
+    addi $sp, $sp, -4           
+    sw $t2, 0($sp)  
+    
+    # Remove the selector
+    lw $t0, ADDR_DSPL
+    lb $a0, start_menu_selector_x
+    lb $a1, start_menu_selector_y
+    addi $a2, $zero, 2
+    li $a3, 0x000000
+    jal draw_hor_line
+    
+    lw $t2, 0($sp)  
+    addi $sp, $sp, 4       
+    
+    lb $t8, start_menu_selector_x
+    lb $t9, start_menu_selector_y
+    
+    # Handle input
+    li $t3, 0x64               # ASCII for 'd'
+    bne $t2, $t3, menu_d_skip
+    li $t5, 4 
+    bne $t9, $t5, menu_d_not_row_1
+    addi $t8, $t8, 7
+    sb $t8, start_menu_selector_x
+    
+    lb $t9, gravity_speed_increaser
+    addi $t9, $t9, 100
+    sb $t9, gravity_speed_increaser
+    
+    lb $t9, intitial_virus_count
+    addi $t9, $t9, 6
+    sb $t9, intitial_virus_count
+    
+    lb $t9, gravity_clock
+    addi $t9, $t9, -4
+    sb $t9, gravity_clock
+    
+    
+    menu_d_not_row_1:
+    li $t5, 12 
+    bne $t9, $t5, menu_d_not_row_2
+    lb $t6, intitial_virus_count
+    addi $t6, $t6, 2
+    sb $t6, intitial_virus_count
+    menu_d_not_row_2:
+    li $t5, 20 
+    bne $t9, $t5, menu_d_not_row_3
+    lb $t6, gravity_clock
+    addi $t6, $t6, 4
+    sb $t6, gravity_clock
+    menu_d_not_row_3:
+    
+    menu_d_skip:
+    li $t3, 0x61               # ASCII for 'a'
+    bne $t2, $t3, menu_a_skip
+    li $t5, 4 
+    bne $t9, $t5, menu_a_not_row_1
+    addi $t8, $t8, -7
+    sb $t8, start_menu_selector_x
+    
+    lb $t9, gravity_speed_increaser
+    addi $t9, $t9, -100
+    sb $t9, gravity_speed_increaser
+    
+    lb $t9, intitial_virus_count
+    addi $t9, $t9, -6
+    sb $t9, intitial_virus_count
+    
+    lb $t9, gravity_clock
+    addi $t9, $t9, 4
+    sb $t9, gravity_clock
+    
+    menu_a_not_row_1:
+    li $t5, 12 
+    bne $t9, $t5, menu_a_not_row_2
+    lb $t6, intitial_virus_count
+    addi $t6, $t6, -2
+    sb $t6, intitial_virus_count
+    menu_a_not_row_2:
+    li $t5, 20 
+    bne $t9, $t5, menu_a_not_row_3
+    lb $t6, gravity_clock
+    addi $t6, $t6, -4
+    sb $t6, gravity_clock
+    menu_a_not_row_3:
+    
+    menu_a_skip:
+    li $t3, 0x73               # ASCII for 's'
+    bne $t2, $t3, menu_s_skip
+    addi $t9, $t9, 8
+    li $t6, 8
+    sb $t6, start_menu_selector_x
+    sb $t9, start_menu_selector_y
+    
+    li $t6, 20
+    ble $t9, $t6, menu_update_game_state_skip
+    lb $t0, game_state
+    addi $t0, $t0, 1
+    sb $t0, game_state
+    menu_update_game_state_skip:  
+    menu_s_skip:
+    
+    menu_input_skip:
+    
+    # Draw the selector
+    lw $t0, ADDR_DSPL
+    lb $a0, start_menu_selector_x
+    lb $a1, start_menu_selector_y
+    addi $a2, $zero, 2
+    li $a3, 0xFFFFFF
+    jal draw_hor_line
+    
+    # Remove Virus Value
+    lw $t0, ADDR_DSPL
+    li $a0, 13
+    li $a1, 15
+    li $a2, 20
+    li $a3, 0
+    jal draw_hor_line
+    
+    # Remove Virus Value
+    lw $t0, ADDR_DSPL
+    li $a0, 13
+    li $a1, 23
+    li $a2, 20
+    li $a3, 0
+    jal draw_hor_line
+    
+    # Draw Virus Value
+    lw $t0, ADDR_DSPL
+    li $a0, 13
+    li $a1, 15
+    lb $t1, intitial_virus_count
+    srl $a2, $t1, 1
+    li $a3, 0xFFFFFF
+    jal draw_hor_line
+    
+    # Draw Virus Value
+    lw $t0, ADDR_DSPL
+    li $a0, 13
+    li $a1, 23
+    lb $t1, gravity_clock
+    srl $a2, $t1, 2
+    li $a3, 0xFFFFFF
+    jal draw_hor_line
+    
+    li $v0, 32          # Sleep
+    lw $a0, FRAME_RATE  # sleep for frame rate amount of time
+    syscall 
+    
+    lb $t0, game_state
+    beq $t0, $zero, menu_change_game_state_skip
+    
+    jal game_state_1_init
+    
+    menu_change_game_state_skip:
+    j game_loop
+    
+    
+    game_state_0_skip:
+    
+    addi $t1, $zero, 1
+    bne $t0, $t1, game_state_1_skip
+    # Game State 1
+    
+    
     lb $t9, input_frame_counter
     lb $t8, INPUT_FRAME_DELAY
     ble $t9, $t8, input_frame_skip
@@ -273,6 +323,13 @@ game_loop:
     
     lw $t2, 0($sp)  
     addi $sp, $sp, 4           # Move stack pointer to t2
+    
+    # Check for 'q' (quit)
+    li $t3, 0x71               # ASCII for 'w'
+    bne $t2, $t3, quit_skip
+    li $v0, 10
+    syscall
+    quit_skip:
     
     # Check for 'w' (up)
     li $t3, 0x77               # ASCII for 'w'
@@ -360,7 +417,10 @@ game_loop:
     
     # 5. Go back to Step 1
     j game_loop
-
+    
+    game_state_1_skip:
+    
+    
 # draw_hor_line(start_x_pos, start_y_pos, length, colour)
 # draws a horizontal line starting at pixel (x,y) for a specified length of a certain colour
 # $a0 - line start x pos (in pixels)
@@ -1572,5 +1632,355 @@ new_pill:
     li $a1, 3
     syscall
     sb $a0, pill_colour_2
+    
+    jr $ra
+    
+# game_state_0_init
+# Initilaze game state 0
+game_state_0_init:    
+    addi $sp, $sp, -4           # Move stack pointer to empty location
+    sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 7
+    addi $a1, $zero, 5
+    addi $a2, $zero, 4
+    li $a3, 0x57D138
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 7
+    addi $a1, $zero, 6
+    addi $a2, $zero, 4
+    li $a3, 0x57D138
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 7
+    addi $a1, $zero, 7
+    addi $a2, $zero, 4
+    li $a3, 0x57D138
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 7
+    addi $a1, $zero, 8
+    addi $a2, $zero, 4
+    li $a3, 0x57D138
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 14
+    addi $a1, $zero, 5
+    addi $a2, $zero, 4
+    li $a3, 0xD1A138
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 14
+    addi $a1, $zero, 6
+    addi $a2, $zero, 4
+    li $a3, 0xD1A138
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 14
+    addi $a1, $zero, 7
+    addi $a2, $zero, 4
+    li $a3, 0xD1A138
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 14
+    addi $a1, $zero, 8
+    addi $a2, $zero, 4
+    li $a3, 0xD1A138
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 21
+    addi $a1, $zero, 5
+    addi $a2, $zero, 4
+    li $a3, 0xD12A32
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 21
+    addi $a1, $zero, 6
+    addi $a2, $zero, 4
+    li $a3, 0xD12A32
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 21
+    addi $a1, $zero, 7
+    addi $a2, $zero, 4
+    li $a3, 0xD12A32
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 21
+    addi $a1, $zero, 8
+    addi $a2, $zero, 4
+    li $a3, 0xD12A32
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 6
+    addi $a1, $zero, 13
+    addi $a2, $zero, 6
+    lw $a3, VIRUS_BLUE
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 8
+    addi $a1, $zero, 14
+    addi $a2, $zero, 2
+    lw $a3, VIRUS_BLUE
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 8
+    addi $a1, $zero, 15
+    addi $a2, $zero, 2
+    lw $a3, VIRUS_BLUE
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 6
+    addi $a1, $zero, 16
+    addi $a2, $zero, 6
+    lw $a3, VIRUS_BLUE
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 7
+    addi $a1, $zero, 17
+    addi $a2, $zero, 4
+    lw $a3, VIRUS_BLUE
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 7
+    addi $a1, $zero, 15
+    addi $a2, $zero, 1
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 10
+    addi $a1, $zero, 15
+    addi $a2, $zero, 1
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 8
+    addi $a1, $zero, 17
+    addi $a2, $zero, 2
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 9
+    addi $a1, $zero, 21
+    addi $a2, $zero, 2
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 8
+    addi $a1, $zero, 22
+    addi $a2, $zero, 2
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 7
+    addi $a1, $zero, 23
+    addi $a2, $zero, 2
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 9
+    addi $a1, $zero, 24
+    addi $a2, $zero, 2
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 8
+    addi $a1, $zero, 25
+    addi $a2, $zero, 2
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 7
+    addi $a1, $zero, 26
+    addi $a2, $zero, 2
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+    lw $ra, 0($sp)				# Pop $ra off the stack
+    addi $sp, $sp, 4			# Move stack pointer to top element on stack
+    
+    jr $ra
+    
+# game_state_1_init
+# Initilaze game state 1
+game_state_1_init:
+    addi $sp, $sp, -4           # Move stack pointer to empty location
+    sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 0
+    addi $a1, $zero, 0
+    addi $a2, $zero, 1024
+    lw $a3, BACKGROUND_COLOUR
+    jal draw_hor_line
+    
+    # Draw the bottle
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 11
+    addi $a1, $zero, 7
+    addi $a2, $zero, 4
+    lw $a3, BOTTLE_COLOUR
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 17
+    addi $a1, $zero, 7
+    addi $a2, $zero, 4
+    lw $a3, BOTTLE_COLOUR
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 11
+    addi $a1, $zero, 24
+    addi $a2, $zero, 10
+    lw $a3, BOTTLE_COLOUR
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 13
+    addi $a1, $zero, 4
+    addi $a2, $zero, 2
+    lw $a3, BOTTLE_COLOUR
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 18
+    addi $a1, $zero, 4
+    addi $a2, $zero, 2
+    lw $a3, BOTTLE_COLOUR
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 14
+    addi $a1, $zero, 5
+    addi $a2, $zero, 2
+    lw $a3, BOTTLE_COLOUR
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 17
+    addi $a1, $zero, 5
+    addi $a2, $zero, 2
+    lw $a3, BOTTLE_COLOUR
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 11
+    addi $a1, $zero, 8
+    addi $a2, $zero, 16
+    lw $a3, BOTTLE_COLOUR
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 20
+    addi $a1, $zero, 8
+    addi $a2, $zero, 16
+    lw $a3, BOTTLE_COLOUR
+    jal draw_vert_line
+    
+    
+    # Adding the bottle bounds to the game board
+    # Draw the bottle
+    la $t0, GAME_BOARD
+    addi $a0, $zero, 11
+    addi $a1, $zero, 7
+    addi $a2, $zero, 4
+    lw $a3, BOTTLE_COLOUR
+    jal draw_hor_line
+    
+    la $t0, GAME_BOARD
+    addi $a0, $zero, 17
+    addi $a1, $zero, 7
+    addi $a2, $zero, 4
+    lw $a3, BOTTLE_COLOUR
+    jal draw_hor_line
+    
+    la $t0, GAME_BOARD
+    addi $a0, $zero, 11
+    addi $a1, $zero, 24
+    addi $a2, $zero, 10
+    lw $a3, BOTTLE_COLOUR
+    jal draw_hor_line
+    
+    la $t0, GAME_BOARD
+    addi $a0, $zero, 13
+    addi $a1, $zero, 4
+    addi $a2, $zero, 2
+    lw $a3, BOTTLE_COLOUR
+    jal draw_vert_line
+    
+    la $t0, GAME_BOARD
+    addi $a0, $zero, 18
+    addi $a1, $zero, 4
+    addi $a2, $zero, 2
+    lw $a3, BOTTLE_COLOUR
+    jal draw_vert_line
+    
+    la $t0, GAME_BOARD
+    addi $a0, $zero, 14
+    addi $a1, $zero, 5
+    addi $a2, $zero, 2
+    lw $a3, BOTTLE_COLOUR
+    jal draw_vert_line
+    
+    la $t0, GAME_BOARD
+    addi $a0, $zero, 17
+    addi $a1, $zero, 5
+    addi $a2, $zero, 2
+    lw $a3, BOTTLE_COLOUR
+    jal draw_vert_line
+    
+    la $t0, GAME_BOARD
+    addi $a0, $zero, 11
+    addi $a1, $zero, 8
+    addi $a2, $zero, 16
+    lw $a3, BOTTLE_COLOUR
+    jal draw_vert_line
+    
+    la $t0, GAME_BOARD
+    addi $a0, $zero, 20
+    addi $a1, $zero, 8
+    addi $a2, $zero, 16
+    lw $a3, BOTTLE_COLOUR
+    jal draw_vert_line
+    
+    # Add the Initial viruses
+    
+    lb $a3, intitial_virus_count
+    jal add_random_virus
+    
+    # Add The Initial Capsule
+    jal new_pill
+    jal save_to_game_board
+    
+    lw $ra, 0($sp)				# Pop $ra off the stack
+    addi $sp, $sp, 4			# Move stack pointer to top element on stack
     
     jr $ra
