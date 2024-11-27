@@ -54,6 +54,18 @@ BLUE: .word 0x0000FF       # Blue virus body
 YELLOW: .word 0xFFFF00     # Yellow virus body
 RED: .word 0xFF0000        # Red virus body
 
+#Background music data
+pitches: #MIDI-coded tones (pitches)
+.word 31, 43, 31, 43, 34, 46, 47, 35, 48, 36, 47, 35, 46, 34, 45, 33, 31, 43, 31, 43, 34, 46, 47, 35, 48, 36, 47, 35, 46, 34, 45, 33, 31, 43
+durations: # Durations in eighth-note units
+.word 175, 175, 175, 175,  175, 175, 175, 175,  175, 175, 175, 175,  175, 175, 175, 175,  175, 175, 175, 175,  175, 175, 175, 175,  175, 175, 175, 175, 
+instruments: # Instruments (General MIDI patches)
+.word 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81
+async: # Async flag (1 for asynchronous, 0 for synchronous)
+.word 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1
+velocities: # Velocities (volume of each note)
+.word 94, 94, 94, 94, 94, 94, 94, 94, 94, 94, 94, 94, 94, 94, 94, 94, 94, 94, 94, 94, 94, 94, 94, 94, 94, 94, 94, 94, 94, 94, 94, 94, 94, 94
+n_notes: .word 34 # Number of notes
 
 
 
@@ -101,6 +113,8 @@ gravity_counter: .byte 0
 start_menu_selector_x: .byte 8 
 start_menu_selector_y: .byte 4
 
+PAUSED: .byte 0
+
 ##############################################################################
 # Code
 ##############################################################################s
@@ -118,7 +132,7 @@ game_loop:
     addi $t1, $zero, 0
     bne $t0, $t1, game_state_0_skip
     # Game State 0
-    
+    #j start_music
     # Check for keypress
     lw $t0, ADDR_KBRD          # Load keyboard base address
     lw $t1, 0($t0)             # Read keyboard state
@@ -342,8 +356,7 @@ game_loop:
     # Check for 'q' (quit)
     li $t3, 0x71               # ASCII for 'w'
     bne $t2, $t3, quit_skip
-    li $v0, 10
-    syscall
+    j game_over
     quit_skip:
     
     # Check for 'w' (up)
@@ -372,7 +385,9 @@ game_loop:
     bne $t2, $t3, move_down_skip
     addi $sp, $sp, -4           # Move stack pointer to empty location
     sw $t2, 0($sp) 
-
+    
+    
+    
     jal move_down
     
     lw $t2, 0($sp)  
@@ -1716,15 +1731,15 @@ new_pill:
         jr $ra                   # Return
 
     new_pill_game_over:
+        j game_over
         
-        li $v0, 10               # Exit syscall
-        syscall                  # Terminate the program
 
     la $t0, GAME_BOARD
     addi $t0, $t0, 1084 # start pill location
     lw $t0, 0($t0)  # get value
     beq $t0, $zero, new_pill_is_ok
     # There is something where we are trying to make a pill
+    game_over:
     li $t0, 3 
     sb $t0, game_state # set the game state to game over
     jal game_state_3_init
@@ -1775,6 +1790,7 @@ game_state_0_init:
 
     addi $sp, $sp, -4           # Move stack pointer to empty location
     sw $ra, 0($sp)              # Push $ra onto the stack, to keep it safe
+    
     
     lw $t0, ADDR_DSPL
     addi $a0, $zero, 0
@@ -2228,7 +2244,19 @@ lw $t0, ADDR_DSPL
     lw $a3, BLUE
     jal draw_hor_line
 
-
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 21
+    addi $a1, $zero, 16
+    addi $a2, $zero, 10
+    lw $a3, VIRUS_RED
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 21
+    addi $a1, $zero, 8
+    addi $a2, $zero, 18
+    lw $a3, VIRUS_RED
+    jal draw_vert_line
 
 
     
@@ -2730,3 +2758,53 @@ get_total_virus:
         
         jr $ra
 
+start_music:
+    # Load base addresses of arrays
+    la $t0, pitches      # $t0 = base address of pitches
+    la $t1, durations    # $t1 = base address of durations
+    la $t2, instruments  # $t2 = base address of instruments
+    la $t3, async        # $t3 = base address of async flags
+    la $t4, velocities   # $t4 = base address of velocities
+    lw $t5, n_notes      # $t5 = number of notes
+
+    li $t6, 0            # Initialize loop counter (i = 0)
+
+play_notes:
+    # Exit the loop if all notes are played
+    beq $t6, $t5, end_music_loop
+
+    # Load the current note data
+    lw $a0, 0($t0)       # Load pitch into $a0
+    lw $a1, 0($t1)       # Load duration into $a1
+    lw $a2, 0($t2)       # Load instrument (patch) into $a2
+    lw $a3, 0($t4)       # Load velocity (optional)
+
+    # Set instrument (optional step)
+    # If your MIPS environment requires setting the instrument, you may include this logic
+
+    # Check async flag
+    lw $t7, 0($t3)       # Load async flag into $t7
+    bne $t7, $zero, play_async  # If async != 0, jump to play_async
+
+    # Play synchronous note
+    li $v0, 33        # Syscall 33 for synchronous note
+    syscall
+    j next_note          # Move to next note
+
+play_async:
+    # Play asynchronous note
+    li $v0, 33           # Syscall 31 for asynchronous note
+    syscall
+
+next_note:
+    # Advance to the next note
+    addi $t0, $t0, 4     # Move to next pitch
+    addi $t1, $t1, 4     # Move to next duration
+    addi $t2, $t2, 4     # Move to next instrument
+    addi $t3, $t3, 4     # Move to next async flag
+    addi $t4, $t4, 4     # Move to next velocity
+    addi $t6, $t6, 1     # Increment loop counter
+    j play_notes         # Repeat the loop
+
+end_music_loop:
+    j start_music
