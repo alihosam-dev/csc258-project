@@ -40,13 +40,20 @@ GAME_BOARD: .space 4096 # Allocate 4096 bytes for the game board (32x32) x 4 (fo
 BOTTLE_COLOUR: .word 0x808080
 BACKGROUND_COLOUR: .word 0x000000
 PILL_RED: .word 0xFF0000
-PILL_BLUE: .word 0x0000FF
+PILL_BLUE: .word 0x0000FFd
 PILL_YELLOW: .word 0xFFFF00
 VIRUS_RED: .word 0xA83832
 VIRUS_BLUE: .word 0x323AA8
 VIRUS_YELLOW: .word 0xA89E32 
 PREV_CAPSULE_X: .word 15     # Previous X position of capsule
 PREV_CAPSULE_Y: .word 5      # Previous Y position of capsule
+
+# Virus Colors
+BLACK: .word 0x000000      # Black for outlines/eyes
+BLUE: .word 0x0000FF       # Blue virus body
+YELLOW: .word 0xFFFF00     # Yellow virus body
+RED: .word 0xFF0000        # Red virus body
+
 
 
 
@@ -2048,6 +2055,182 @@ game_state_1_init:
     lw $a3, BOTTLE_COLOUR
     jal draw_vert_line
     
+# Draw Viruses on the Left Side of the Bottle
+# Starting X = 4 (left side), with a vertical gap between viruses
+
+lw $t0, ADDR_DSPL
+    addi $a0, $zero, 3
+    addi $a1, $zero, 13
+    addi $a2, $zero, 3
+    lw $a3, VIRUS_RED
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 4
+    addi $a1, $zero, 14
+    addi $a2, $zero, 1
+    lw $a3, VIRUS_RED
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 4
+    addi $a1, $zero, 15
+    addi $a2, $zero, 1
+    lw $a3, VIRUS_RED
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 3
+    addi $a1, $zero, 16
+    addi $a2, $zero, 3
+    lw $a3, VIRUS_RED
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 4
+    addi $a1, $zero, 17
+    addi $a2, $zero, 2
+    lw $a3, VIRUS_RED
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 3
+    addi $a1, $zero, 15
+    addi $a2, $zero, 1
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 5
+    addi $a1, $zero, 15
+    addi $a2, $zero, 1
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 3
+    addi $a1, $zero, 17
+    addi $a2, $zero, 3
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+#Blue
+lw $t0, ADDR_DSPL
+    addi $a0, $zero, 7
+    addi $a1, $zero, 13
+    addi $a2, $zero, 3
+    lw $a3, VIRUS_BLUE
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 8
+    addi $a1, $zero, 14
+    addi $a2, $zero, 1
+    lw $a3, VIRUS_BLUE
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 8
+    addi $a1, $zero, 15
+    addi $a2, $zero, 1
+    lw $a3, VIRUS_BLUE
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 7
+    addi $a1, $zero, 16
+    addi $a2, $zero, 3
+    lw $a3, VIRUS_BLUE
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 8
+    addi $a1, $zero, 17
+    addi $a2, $zero, 2
+    lw $a3, VIRUS_BLUE
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 7
+    addi $a1, $zero, 15
+    addi $a2, $zero, 1
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 9
+    addi $a1, $zero, 15
+    addi $a2, $zero, 1
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 7
+    addi $a1, $zero, 17
+    addi $a2, $zero, 3
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+
+#Yellow
+lw $t0, ADDR_DSPL
+    addi $a0, $zero, 5
+    addi $a1, $zero, 20
+    addi $a2, $zero, 3
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 6
+    addi $a1, $zero, 22
+    addi $a2, $zero, 1
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 6
+    addi $a1, $zero, 21
+    addi $a2, $zero, 1
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 5
+    addi $a1, $zero, 23
+    addi $a2, $zero, 3
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 6
+    addi $a1, $zero, 24
+    addi $a2, $zero, 2
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 5
+    addi $a1, $zero, 22
+    addi $a2, $zero, 1
+    lw $a3, BLUE
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 7
+    addi $a1, $zero, 22
+    addi $a2, $zero, 1
+    lw $a3, BLUE
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 5
+    addi $a1, $zero, 24
+    addi $a2, $zero, 3
+    lw $a3, BLUE
+    jal draw_hor_line
+
+
+
+
     
     # Adding the bottle bounds to the game board
     # Draw the bottle
