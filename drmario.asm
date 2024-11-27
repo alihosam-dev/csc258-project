@@ -359,12 +359,13 @@ game_loop:
     lw $t2, 0($sp)  
     addi $sp, $sp, 4           # Move stack pointer to t2
     
+    
     # Check for 'p' (pause)
     li $t3, 0x70               # ASCII for 'p'
     bne $t2, $t3, pause_skip
-    
     li $t9, 2
     sb $t9, game_state
+    
     jal game_state_2_init
     j game_loop
     
@@ -486,25 +487,59 @@ game_loop:
     
     addi $t1, $zero, 2
     bne $t0, $t1, game_state_2_skip
-    # Game State 2
-    
-    # Check for keypress
-    lw $t0, ADDR_KBRD          # Load keyboard base address
-    lw $t1, 0($t0)             # Read keyboard state
-    beq $t1, $zero, paused_input_skip# If no key is pressed, continue loop
-    
-    lw $t2, 4($t0)             # Load key code
-    
-    li $t3, 0x70               # ASCII for 'p'
-    bne $t2, $t3, unpause_skip
-    li $t0, 1
-    sb $t0, game_state
-    
-    jal draw_game_state_1
-    
-    unpause_skip:
+    # Game State 2    
+    start_music:
+    # Load base addresses of arrays
+    la $t0, pitches      # $t0 = base address of pitches
+    la $t1, durations    # $t1 = base address of durations
+    la $t2, instruments  # $t2 = base address of instruments
+    la $t3, async        # $t3 = base address of async flags
+    la $t4, velocities   # $t4 = base address of velocities
+    lw $t5, n_notes      # $t5 = number of notes
+
+    li $t6, 0            # Initialize loop counter (i = 0)
+
+play_notes:
+    # Exit the loop if all notes are played
+    beq $t6, $t5, end_loop
+
+    # Load the current note data
+    lw $a0, 0($t0)       # Load pitch into $a0
+    lw $a1, 0($t1)       # Load duration into $a1
+    lw $a2, 0($t2)       # Load instrument (patch) into $a2
+    lw $a3, 0($t4)       # Load velocity (optional)
+
+    # Set instrument (optional step)
+    # If your MIPS environment requires setting the instrument, you may include this logic
+
+    # Check async flag
+    lw $t7, 0($t3)       # Load async flag into $t7
+    bne $t7, $zero, play_async  # If async != 0, jump to play_async
+
+    # Play synchronous note
+    li $v0, 31           # Syscall 31 for synchronous note
+    syscall
+    j next_note          # Move to next note
+
+play_async:
+    # Play asynchronous note
+    li $v0, 33           # Syscall 33 for asynchronous note
+    syscall
+
+next_note:
+    # Advance to the next note
+    addi $t0, $t0, 4     # Move to next pitch
+    addi $t1, $t1, 4     # Move to next duration
+    addi $t2, $t2, 4     # Move to next instrument
+    addi $t3, $t3, 4     # Move to next async flag
+    addi $t4, $t4, 4     # Move to next velocity
+    addi $t6, $t6, 1     # Increment loop counter
+    j play_notes         # Repeat the loop
+
+end_loop:
+    j start_music
     paused_input_skip:
-    j game_loop
+    
     
     game_state_2_skip:
     
@@ -3074,57 +3109,6 @@ get_total_virus:
         sb $t4, total_virus
         
         jr $ra
-
-start_music:
-    # Load base addresses of arrays
-    la $t0, pitches      # $t0 = base address of pitches
-    la $t1, durations    # $t1 = base address of durations
-    la $t2, instruments  # $t2 = base address of instruments
-    la $t3, async        # $t3 = base address of async flags
-    la $t4, velocities   # $t4 = base address of velocities
-    lw $t5, n_notes      # $t5 = number of notes
-
-    li $t6, 0            # Initialize loop counter (i = 0)
-
-play_notes:
-    # Exit the loop if all notes are played
-    beq $t6, $t5, end_music_loop
-
-    # Load the current note data
-    lw $a0, 0($t0)       # Load pitch into $a0
-    lw $a1, 0($t1)       # Load duration into $a1
-    lw $a2, 0($t2)       # Load instrument (patch) into $a2
-    lw $a3, 0($t4)       # Load velocity (optional)
-
-    # Set instrument (optional step)
-    # If your MIPS environment requires setting the instrument, you may include this logic
-
-    # Check async flag
-    lw $t7, 0($t3)       # Load async flag into $t7
-    bne $t7, $zero, play_async  # If async != 0, jump to play_async
-
-    # Play synchronous note
-    li $v0, 33        # Syscall 33 for synchronous note
-    syscall
-    j next_note          # Move to next note
-
-play_async:
-    # Play asynchronous note
-    li $v0, 33           # Syscall 31 for asynchronous note
-    syscall
-
-next_note:
-    # Advance to the next note
-    addi $t0, $t0, 4     # Move to next pitch
-    addi $t1, $t1, 4     # Move to next duration
-    addi $t2, $t2, 4     # Move to next instrument
-    addi $t3, $t3, 4     # Move to next async flag
-    addi $t4, $t4, 4     # Move to next velocity
-    addi $t6, $t6, 1     # Increment loop counter
-    j play_notes         # Repeat the loop
-
-end_music_loop:
-    j start_music
     
 
 draw_game_state_1:
@@ -3684,6 +3668,8 @@ game_state_2_init:
     addi $a2, $zero, 1024
     lw $a3, BACKGROUND_COLOUR
     jal draw_hor_line
+    
+    
     
     # P
     lw $t0, ADDR_DSPL
