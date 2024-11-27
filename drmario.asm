@@ -54,6 +54,12 @@ BLUE: .word 0x0000FF       # Blue virus body
 YELLOW: .word 0xFFFF00     # Yellow virus body
 RED: .word 0xFF0000        # Red virus body
 
+# Dr Mario Colours
+WHITE: .word 0xFFFFFF
+BROWN: .word 0x7a5448
+SKIN: .word 0xffcc80
+GREY: .word 0x464646
+
 #Background music data
 pitches: #MIDI-coded tones (pitches)
 .word 31, 43, 31, 43, 34, 46, 47, 35, 48, 36, 47, 35, 46, 34, 45, 33, 31, 43, 31, 43, 34, 46, 47, 35, 48, 36, 47, 35, 46, 34, 45, 33, 31, 43
@@ -2244,19 +2250,295 @@ lw $t0, ADDR_DSPL
     lw $a3, BLUE
     jal draw_hor_line
 
+
+    # Dr Mario
     lw $t0, ADDR_DSPL
-    addi $a0, $zero, 21
-    addi $a1, $zero, 16
-    addi $a2, $zero, 10
-    lw $a3, VIRUS_RED
-    jal draw_hor_line
-    
-    lw $t0, ADDR_DSPL
-    addi $a0, $zero, 21
-    addi $a1, $zero, 8
-    addi $a2, $zero, 18
-    lw $a3, VIRUS_RED
-    jal draw_vert_line
+addi $a0, $zero, 29
+addi $a1, $zero, 9
+addi $a2, $zero, 3
+lw $a3, WHITE
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 24
+addi $a1, $zero, 10
+addi $a2, $zero, 5
+lw $a3, RED
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 29
+addi $a1, $zero, 10
+addi $a2, $zero, 3
+lw $a3, WHITE
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 30
+addi $a1, $zero, 10
+addi $a2, $zero, 1
+lw $a3, BLACK
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 23
+addi $a1, $zero, 11
+addi $a2, $zero, 9
+lw $a3, WHITE
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 23
+addi $a1, $zero, 12
+addi $a2, $zero, 3
+lw $a3, BROWN
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 26
+addi $a1, $zero, 12
+addi $a2, $zero, 4
+lw $a3, SKIN
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 28
+addi $a1, $zero, 12
+addi $a2, $zero, 1
+lw $a3, BROWN
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 22
+addi $a1, $zero, 13
+addi $a2, $zero, 10
+lw $a3, SKIN
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 22
+addi $a1, $zero, 13
+addi $a2, $zero, 1
+lw $a3, BROWN
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 24
+addi $a1, $zero, 13
+addi $a2, $zero, 1
+lw $a3, BROWN
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 28
+addi $a1, $zero, 13
+addi $a2, $zero, 1
+lw $a3, BROWN
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 22
+addi $a1, $zero, 14
+addi $a2, $zero, 10
+lw $a3, SKIN
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 22
+addi $a1, $zero, 14
+addi $a2, $zero, 1
+lw $a3, BROWN
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 24
+addi $a1, $zero, 14
+addi $a2, $zero, 2
+lw $a3, BROWN
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 29
+addi $a1, $zero, 14
+addi $a2, $zero, 1
+lw $a3, BROWN
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 22
+addi $a1, $zero, 15
+addi $a2, $zero, 10
+lw $a3, BROWN
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 24
+addi $a1, $zero, 15
+addi $a2, $zero, 4
+lw $a3, SKIN
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 24
+addi $a1, $zero, 16
+addi $a2, $zero, 7
+lw $a3, SKIN
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 23
+addi $a1, $zero, 17
+addi $a2, $zero, 6
+lw $a3, WHITE
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 26
+addi $a1, $zero, 17
+addi $a2, $zero, 2
+lw $a3, RED
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 22
+addi $a1, $zero, 18
+addi $a2, $zero, 10
+lw $a3, WHITE
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 26
+addi $a1, $zero, 18
+addi $a2, $zero, 2
+lw $a3, RED
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 22
+addi $a1, $zero, 19
+addi $a2, $zero, 10
+lw $a3, WHITE
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 26
+addi $a1, $zero, 19
+addi $a2, $zero, 2
+lw $a3, RED
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 22
+addi $a1, $zero, 20
+addi $a2, $zero, 10
+lw $a3, WHITE
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 22
+addi $a1, $zero, 20
+addi $a2, $zero, 1
+lw $a3, SKIN
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 26
+addi $a1, $zero, 20
+addi $a2, $zero, 2
+lw $a3, GREY
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 31
+addi $a1, $zero, 20
+addi $a2, $zero, 1
+lw $a3, SKIN
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 22
+addi $a1, $zero, 21
+addi $a2, $zero, 10
+lw $a3, WHITE
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 22
+addi $a1, $zero, 21
+addi $a2, $zero, 2
+lw $a3, SKIN
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 30
+addi $a1, $zero, 21
+addi $a2, $zero, 2
+lw $a3, SKIN
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 22
+addi $a1, $zero, 22
+addi $a2, $zero, 10
+lw $a3, WHITE
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 22
+addi $a1, $zero, 22
+addi $a2, $zero, 1
+lw $a3, SKIN
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 31
+addi $a1, $zero, 22
+addi $a2, $zero, 1
+lw $a3, SKIN
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 23
+addi $a1, $zero, 23
+addi $a2, $zero, 3
+lw $a3, WHITE
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 28
+addi $a1, $zero, 23
+addi $a2, $zero, 3
+lw $a3, WHITE
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 23
+addi $a1, $zero, 24
+addi $a2, $zero, 2
+lw $a3, BROWN
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 22
+addi $a1, $zero, 25
+addi $a2, $zero, 3
+lw $a3, BROWN
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 29
+addi $a1, $zero, 24
+addi $a2, $zero, 2
+lw $a3, BROWN
+jal draw_hor_line
+
+lw $t0, ADDR_DSPL
+addi $a0, $zero, 29
+addi $a1, $zero, 25
+addi $a2, $zero, 3
+lw $a3, BROWN
+jal draw_hor_line
+
 
 
     
