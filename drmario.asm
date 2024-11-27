@@ -353,6 +353,17 @@ game_loop:
     lw $t2, 0($sp)  
     addi $sp, $sp, 4           # Move stack pointer to t2
     
+    # Check for 'p' (pause)
+    li $t3, 0x70               # ASCII for 'p'
+    bne $t2, $t3, pause_skip
+    
+    li $t9, 2
+    sb $t9, game_state
+    jal game_state_2_init
+    j game_loop
+    
+    pause_skip:
+    
     # Check for 'q' (quit)
     li $t3, 0x71               # ASCII for 'w'
     bne $t2, $t3, quit_skip
@@ -466,6 +477,30 @@ game_loop:
     j game_loop
     
     game_state_1_skip:
+    
+    addi $t1, $zero, 2
+    bne $t0, $t1, game_state_2_skip
+    # Game State 2
+    
+    # Check for keypress
+    lw $t0, ADDR_KBRD          # Load keyboard base address
+    lw $t1, 0($t0)             # Read keyboard state
+    beq $t1, $zero, paused_input_skip# If no key is pressed, continue loop
+    
+    lw $t2, 4($t0)             # Load key code
+    
+    li $t3, 0x70               # ASCII for 'p'
+    bne $t2, $t3, unpause_skip
+    li $t0, 1
+    sb $t0, game_state
+    
+    jal draw_game_state_1
+    
+    unpause_skip:
+    paused_input_skip:
+    j game_loop
+    
+    game_state_2_skip:
     
     addi $t1, $zero, 3
     bne $t0, $t1, game_state_3_skip
@@ -2808,3 +2843,467 @@ next_note:
 
 end_music_loop:
     j start_music
+    
+
+draw_game_state_1:
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    
+    # Draw the bottle and virus and dr mario
+    
+    # Clear Screen 
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 0
+    addi $a1, $zero, 0
+    addi $a2, $zero, 1024
+    lw $a3, BACKGROUND_COLOUR
+    jal draw_hor_line
+    
+    # Draw the bottle
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 11
+    addi $a1, $zero, 7
+    addi $a2, $zero, 4
+    lw $a3, BOTTLE_COLOUR
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 17
+    addi $a1, $zero, 7
+    addi $a2, $zero, 4
+    lw $a3, BOTTLE_COLOUR
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 11
+    addi $a1, $zero, 24
+    addi $a2, $zero, 10
+    lw $a3, BOTTLE_COLOUR
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 13
+    addi $a1, $zero, 4
+    addi $a2, $zero, 2
+    lw $a3, BOTTLE_COLOUR
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 18
+    addi $a1, $zero, 4
+    addi $a2, $zero, 2
+    lw $a3, BOTTLE_COLOUR
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 14
+    addi $a1, $zero, 5
+    addi $a2, $zero, 2
+    lw $a3, BOTTLE_COLOUR
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 17
+    addi $a1, $zero, 5
+    addi $a2, $zero, 2
+    lw $a3, BOTTLE_COLOUR
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 11
+    addi $a1, $zero, 8
+    addi $a2, $zero, 16
+    lw $a3, BOTTLE_COLOUR
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 20
+    addi $a1, $zero, 8
+    addi $a2, $zero, 16
+    lw $a3, BOTTLE_COLOUR
+    jal draw_vert_line
+    
+# Draw Viruses on the Left Side of the Bottle
+# Starting X = 4 (left side), with a vertical gap between viruses
+
+lw $t0, ADDR_DSPL
+    addi $a0, $zero, 3
+    addi $a1, $zero, 13
+    addi $a2, $zero, 3
+    lw $a3, VIRUS_RED
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 4
+    addi $a1, $zero, 14
+    addi $a2, $zero, 1
+    lw $a3, VIRUS_RED
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 4
+    addi $a1, $zero, 15
+    addi $a2, $zero, 1
+    lw $a3, VIRUS_RED
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 3
+    addi $a1, $zero, 16
+    addi $a2, $zero, 3
+    lw $a3, VIRUS_RED
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 4
+    addi $a1, $zero, 17
+    addi $a2, $zero, 2
+    lw $a3, VIRUS_RED
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 3
+    addi $a1, $zero, 15
+    addi $a2, $zero, 1
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 5
+    addi $a1, $zero, 15
+    addi $a2, $zero, 1
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 3
+    addi $a1, $zero, 17
+    addi $a2, $zero, 3
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+#Blue
+lw $t0, ADDR_DSPL
+    addi $a0, $zero, 7
+    addi $a1, $zero, 13
+    addi $a2, $zero, 3
+    lw $a3, VIRUS_BLUE
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 8
+    addi $a1, $zero, 14
+    addi $a2, $zero, 1
+    lw $a3, VIRUS_BLUE
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 8
+    addi $a1, $zero, 15
+    addi $a2, $zero, 1
+    lw $a3, VIRUS_BLUE
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 7
+    addi $a1, $zero, 16
+    addi $a2, $zero, 3
+    lw $a3, VIRUS_BLUE
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 8
+    addi $a1, $zero, 17
+    addi $a2, $zero, 2
+    lw $a3, VIRUS_BLUE
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 7
+    addi $a1, $zero, 15
+    addi $a2, $zero, 1
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 9
+    addi $a1, $zero, 15
+    addi $a2, $zero, 1
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 7
+    addi $a1, $zero, 17
+    addi $a2, $zero, 3
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+
+#Yellow
+lw $t0, ADDR_DSPL
+    addi $a0, $zero, 5
+    addi $a1, $zero, 20
+    addi $a2, $zero, 3
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 6
+    addi $a1, $zero, 22
+    addi $a2, $zero, 1
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 6
+    addi $a1, $zero, 21
+    addi $a2, $zero, 1
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 5
+    addi $a1, $zero, 23
+    addi $a2, $zero, 3
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 6
+    addi $a1, $zero, 24
+    addi $a2, $zero, 2
+    lw $a3, PILL_YELLOW
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 5
+    addi $a1, $zero, 22
+    addi $a2, $zero, 1
+    lw $a3, BLUE
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 7
+    addi $a1, $zero, 22
+    addi $a2, $zero, 1
+    lw $a3, BLUE
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 5
+    addi $a1, $zero, 24
+    addi $a2, $zero, 3
+    lw $a3, BLUE
+    jal draw_hor_line
+
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 21
+    addi $a1, $zero, 16
+    addi $a2, $zero, 10
+    lw $a3, VIRUS_RED
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 21
+    addi $a1, $zero, 8
+    addi $a2, $zero, 18
+    lw $a3, VIRUS_RED
+    jal draw_vert_line
+    
+    lw $ra, 0($sp)				
+    addi $sp, $sp, 4
+    
+    jr $ra
+    
+
+
+game_state_2_init:
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    
+    # Clear Screen 
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 0
+    addi $a1, $zero, 0
+    addi $a2, $zero, 1024
+    lw $a3, BACKGROUND_COLOUR
+    jal draw_hor_line
+    
+    # P
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 2
+    addi $a1, $zero, 12
+    addi $a2, $zero, 5
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 3
+    addi $a1, $zero, 12
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 3
+    addi $a1, $zero, 14
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 4
+    addi $a1, $zero, 13
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    # A
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 6
+    addi $a1, $zero, 13
+    addi $a2, $zero, 4
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 7
+    addi $a1, $zero, 12
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 7
+    addi $a1, $zero, 14
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 8
+    addi $a1, $zero, 13
+    addi $a2, $zero, 4
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 10
+    addi $a1, $zero, 12
+    addi $a2, $zero, 5
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 11
+    addi $a1, $zero, 16
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 12
+    addi $a1, $zero, 12
+    addi $a2, $zero, 5
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    
+    # S
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 14
+    addi $a1, $zero, 12
+    addi $a2, $zero, 3
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 14
+    addi $a1, $zero, 12
+    addi $a2, $zero, 3
+    li $a3, 0xFFFFFF
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 14
+    addi $a1, $zero, 14
+    addi $a2, $zero, 3
+    li $a3, 0xFFFFFF
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 14
+    addi $a1, $zero, 16
+    addi $a2, $zero, 3
+    li $a3, 0xFFFFFF
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 16
+    addi $a1, $zero, 14
+    addi $a2, $zero, 3
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    # E   
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 18
+    addi $a1, $zero, 12
+    addi $a2, $zero, 5
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 18
+    addi $a1, $zero, 12
+    addi $a2, $zero, 3
+    li $a3, 0xFFFFFF
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 18
+    addi $a1, $zero, 14
+    addi $a2, $zero, 3
+    li $a3, 0xFFFFFF
+    jal draw_hor_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 18
+    addi $a1, $zero, 16
+    addi $a2, $zero, 3
+    li $a3, 0xFFFFFF
+    jal draw_hor_line
+    
+    # D
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 22
+    addi $a1, $zero, 12
+    addi $a2, $zero, 5
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 23
+    addi $a1, $zero, 12
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 23
+    addi $a1, $zero, 16
+    addi $a2, $zero, 1
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $t0, ADDR_DSPL
+    addi $a0, $zero, 24
+    addi $a1, $zero, 13
+    addi $a2, $zero, 3
+    li $a3, 0xFFFFFF
+    jal draw_vert_line
+    
+    lw $ra, 0($sp)				
+    addi $sp, $sp, 4
+    
+    jr $ra
