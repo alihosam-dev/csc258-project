@@ -48,9 +48,6 @@ VIRUS_YELLOW: .word 0xA89E32
 PREV_CAPSULE_X: .word 15     # Previous X position of capsule
 PREV_CAPSULE_Y: .word 5      # Previous Y position of capsule
 
-gravity_speed_increaser: .word 200
-gravity_speed_counter: .word 0
-
 # frame data
 INPUT_FRAME_DELAY: .byte 2
 
@@ -76,7 +73,7 @@ intitial_virus_count: .byte 3
 input_frame_counter: .byte 0  # current frame 
 
 # Gravity data
-gravity_clock: .byte 20  
+gravity_clock: .byte 15 
 gravity_counter: .byte 0
 
 ##############################################################################
@@ -233,25 +230,8 @@ game_loop:
 
     lb $t9, input_frame_counter
     lb $t8, INPUT_FRAME_DELAY
-    ble $t9, $t8, input_frame_skip
+    bne $t9, $t8, input_frame_skip
     sb $zero, input_frame_counter
-    
-    #update gravity speed if needed
-    lw $t9, gravity_speed_counter
-    lw $t8, gravity_speed_increaser
-    bne $t9, $t8, gravity_speed_skip
-    sw $zero, gravity_speed_counter
-    lb $t7, gravity_clock
-    addi $t7, $t7, -1
-    bne $t7, $zero, gravity_min_skip
-    addi $t7, $zero, 1
-    gravity_min_skip:
-    sb $t7, gravity_clock
-    gravity_speed_skip:
-    lw $t9, gravity_speed_counter
-    addi $t9, $t9, 1
-    sw $t9, gravity_speed_counter
-    
     # Check for keypress
     lw $t0, ADDR_KBRD          # Load keyboard base address
     lw $t1, 0($t0)             # Read keyboard state
@@ -329,7 +309,7 @@ game_loop:
     
     lb $t9, gravity_clock
     lb $t8, gravity_counter
-    ble $t8, $t9, gravity_skip 
+    bne $t9, $t8, gravity_skip 
     #gravity
     sb $zero, gravity_counter
     jal remove_from_game_board
@@ -1547,30 +1527,51 @@ drop_pill_and_above:
 # new_pill()
 # updates the pill information with information for a new pill the player can use
 new_pill:
-    # basic start data
-    addi $t0, $zero, 15
-    sb $t0, pill_x
-    addi $t0, $zero, 8
-    sb $t0, pill_y
-    sb $zero, pill_orient
-    sb $zero, pill_single
-    sb $zero, pill_is_colliding
-    addi $t0, $zero, 1
-    sb $t0, pill_valid
-    sb $zero, pill_is_virus
+    # Check if the row above the spawning row is occupied
+    la $t0, GAME_BOARD          # Load the base address of the game board
+    li $t1, 8          
+    lw $t2, BOTTLE_LEFT         # Get the left boundary of the bottle
+    lw $t3, BOTTLE_RIGHT        # Get the right boundary of the bottle
     
-    # get random colour (0-2), store in $a0
-    li $v0, 42
-    li $a0, 0
-    li $a1, 3
-    syscall
-    sb $a0, pill_colour_1
-    
-    # get random colour (0-2), store in $a0
-    li $v0, 42
-    li $a0, 0
-    li $a1, 3
-    syscall
-    sb $a0, pill_colour_2
-    
-    jr $ra
+    new_pill_check_top_row:
+        beq $t2, $t3, new_pill_game_over_check_done # If left == right, end loop
+        sll $t4, $t2, 2          # X offset (4 bytes per column)
+        sll $t5, $t1, 7          # Y offset (128 bytes per row)
+        add $t6, $t0, $t4        # Base + X offset
+        add $t6, $t6, $t5        # Add Y offset
+        lw $t7, 0($t6)           # Load the value at (x, y)
+        bne $t7, $zero, new_pill_game_over # If not empty, go to game over
+        addi $t2, $t2, 1         # Move to the next column
+        j new_pill_check_top_row
+
+    new_pill_game_over_check_done:
+        # Top row is clear, continue spawning the pill
+        addi $t0, $zero, 15      # Initial X position
+        sb $t0, pill_x
+        addi $t0, $zero, 8       # Initial Y position
+        sb $t0, pill_y
+        sb $zero, pill_orient    # Horizontal orientation
+        sb $zero, pill_single    # Pill is not single
+        sb $zero, pill_is_colliding # Pill is not colliding
+        addi $t0, $zero, 1
+        sb $t0, pill_valid       # Mark as valid
+        sb $zero, pill_is_virus  # Pill is not a virus
+
+        # Get random color for each half of the pill
+        li $v0, 42
+        li $a0, 0
+        li $a1, 3
+        syscall
+        sb $a0, pill_colour_1    # Save the first color
+        li $v0, 42
+        li $a0, 0
+        li $a1, 3
+        syscall
+        sb $a0, pill_colour_2    # Save the second color
+
+        jr $ra                   # Return
+
+    new_pill_game_over:
+        
+        li $v0, 10               # Exit syscall
+        syscall                  # Terminate the program
